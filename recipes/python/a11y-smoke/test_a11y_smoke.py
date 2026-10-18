@@ -6,7 +6,7 @@ from a11y_smoke import a11y_problems, tab_until
 
 def test_the_sign_in_page_passes(page, app_url):
     page.goto(app_url)
-    expect(page.get_by_role("button", name="Sign in")).to_be_visible()
+    expect(page.locator("body")).to_have_attribute("data-ready", "true")
 
     assert a11y_problems(page) == []
 
@@ -24,7 +24,7 @@ def test_the_task_list_passes_in_both_languages(signed_in_page):
 
 def test_the_keyboard_reaches_sign_in_in_order(page, app_url):
     page.goto(app_url)
-    expect(page.get_by_role("button", name="Sign in")).to_be_visible()
+    expect(page.locator("body")).to_have_attribute("data-ready", "true")
 
     tab_until(page, page.get_by_label("Email"))
 

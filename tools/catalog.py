@@ -86,7 +86,7 @@ def check(catalog: dict) -> list[str]:
         if not any(Path(f).name.startswith("test_") or ".test." in f or ".spec." in f or ".nodetest." in f for f in recipe["files"]):
             problems.append(f"{key}: has no test file of its own")
     for folder in sorted((ROOT / "recipes").glob("*/*/")):
-        if folder.parent.name == "shared":
+        if folder.parent.name == "shared" or folder.name.startswith(("_", ".")):
             continue
         if (folder.name, folder.parent.name) not in seen:
             problems.append(f"recipes/{folder.parent.name}/{folder.name} is not in CATALOG.json")

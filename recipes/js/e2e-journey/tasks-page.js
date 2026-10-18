@@ -1,6 +1,9 @@
 // A page object: one class per page, holding its locators and the actions a person takes there.
 // Tests read like the journey; when the page changes, only this file changes. Roles and labels first, visible text
-// next, data-testid only where nothing else fits. No assertions here: tests assert.
+// next, data-testid only where nothing else fits. No assertions about behaviour here (tests assert); waiting for
+// the page to be ready belongs here.
+import { expect } from '@playwright/test';
+
 export class TasksPage {
   constructor(page, baseURL) {
     this.page = page;
@@ -18,6 +21,8 @@ export class TasksPage {
 
   async open() {
     await this.page.goto(this.baseURL);
+    // Wait until the app's script has attached its handlers: a click before that is lost (or submits natively).
+    await expect(this.page.locator('body')).toHaveAttribute('data-ready', 'true');
     return this;
   }
 

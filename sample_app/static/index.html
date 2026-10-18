@@ -15,7 +15,7 @@
 
   <main>
     <section id="sign-in">
-      <form id="sign-in-form" aria-labelledby="sign-in-heading">
+      <form id="sign-in-form" method="post" aria-labelledby="sign-in-heading">
         <h2 id="sign-in-heading" data-text="signIn">Sign in</h2>
         <label for="email" data-text="email">Email</label>
         <input id="email" name="email" type="email" autocomplete="username" required>
@@ -28,7 +28,7 @@
 
     <section id="tasks" hidden>
       <p><span id="who"></span> <button type="button" id="sign-out" data-text="signOut">Sign out</button></p>
-      <form id="new-task-form">
+      <form id="new-task-form" method="post">
         <label for="title" data-text="newTask">New task</label>
         <input id="title" name="title" required maxlength="200">
         <button type="submit" id="add" data-text="add">Add</button>

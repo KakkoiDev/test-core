@@ -1,9 +1,10 @@
 """A page object: one class per page, holding its locators and the actions a person takes there.
 
 Tests read like the journey ("sign in, add a task"); when the page changes, only this file changes. Locators use roles
-and labels first, visible text next, data-testid only where nothing else fits. No assertions here: tests assert.
+and labels first, visible text next, data-testid only where nothing else fits. No assertions about behaviour here (tests assert);
+waiting for the page to be ready belongs here.
 """
-from playwright.sync_api import Locator, Page
+from playwright.sync_api import Locator, Page, expect
 
 
 class TasksPage:
@@ -22,6 +23,8 @@ class TasksPage:
 
     def open(self) -> "TasksPage":
         self.page.goto(self.base_url)
+        # Wait until the app's script has attached its handlers: a click before that is lost (or submits natively).
+        expect(self.page.locator("body")).to_have_attribute("data-ready", "true")
         return self
 
     def sign_in(self, email: str, password: str) -> None:

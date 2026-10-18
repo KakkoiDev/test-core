@@ -4,7 +4,7 @@ import { a11yProblems, tabUntil } from './a11y-smoke.js';
 
 test('the sign-in page passes', async ({ page, appURL }) => {
   await page.goto(appURL);
-  await expect(page.getByRole('button', { name: 'Sign in' })).toBeVisible();
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
 
   expect(await a11yProblems(page)).toEqual([]);
 });
@@ -22,7 +22,7 @@ test('the task list passes in both languages', async ({ signedInPage: page }) =>
 
 test('the keyboard reaches Sign in in order', async ({ page, appURL }) => {
   await page.goto(appURL);
-  await expect(page.getByRole('button', { name: 'Sign in' })).toBeVisible();
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
   await tabUntil(page, page.getByLabel('Email'));
 
   expect(await tabUntil(page, page.getByRole('button', { name: 'Sign in' }))).toBe(2); // Email -> Password -> Sign in
