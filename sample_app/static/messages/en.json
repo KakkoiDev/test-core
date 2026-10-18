@@ -1,0 +1,18 @@
+{
+  "title": "Tasks",
+  "switchTo": "日本語",
+  "signIn": "Sign in",
+  "email": "Email",
+  "password": "Password",
+  "signInError": "Wrong email or password.",
+  "signOut": "Sign out",
+  "signedInAs": "Signed in as {email}",
+  "newTask": "New task",
+  "add": "Add",
+  "delete": "Delete",
+  "tip": "Tip",
+  "tipUnavailable": "Tip unavailable.",
+  "offline": "You’re offline. Changes need a connection.",
+  "count_one": "1 task",
+  "count": "{n} tasks"
+}

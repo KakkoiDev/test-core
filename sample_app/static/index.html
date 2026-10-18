@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tasks</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header>
+    <h1 data-text="title">Tasks</h1>
+    <button type="button" id="language" data-text="switchTo">日本語</button>
+  </header>
+  <p id="offline" role="status" hidden data-text="offline">You’re offline. Changes need a connection.</p>
+
+  <main>
+    <section id="sign-in">
+      <form id="sign-in-form" aria-labelledby="sign-in-heading">
+        <h2 id="sign-in-heading" data-text="signIn">Sign in</h2>
+        <label for="email" data-text="email">Email</label>
+        <input id="email" name="email" type="email" autocomplete="username" required>
+        <label for="password" data-text="password">Password</label>
+        <input id="password" name="password" type="password" autocomplete="current-password" required>
+        <button type="submit" data-text="signIn">Sign in</button>
+        <p id="sign-in-error" role="alert" hidden data-text="signInError">Wrong email or password.</p>
+      </form>
+    </section>
+
+    <section id="tasks" hidden>
+      <p><span id="who"></span> <button type="button" id="sign-out" data-text="signOut">Sign out</button></p>
+      <form id="new-task-form">
+        <label for="title" data-text="newTask">New task</label>
+        <input id="title" name="title" required maxlength="200">
+        <button type="submit" id="add" data-text="add">Add</button>
+      </form>
+      <p id="count" role="status">0 tasks</p>
+      <ul id="task-list" aria-label="Tasks"></ul>
+      <aside aria-labelledby="tip-heading">
+        <h2 id="tip-heading" data-text="tip">Tip</h2>
+        <p id="tip">…</p>
+      </aside>
+    </section>
+  </main>
+
+  <template id="task-row">
+    <li>
+      <label><input type="checkbox" class="done"> <span class="task-title"></span></label>
+      <button type="button" class="delete" data-text="delete">Delete</button>
+    </li>
+  </template>
+  <script type="module" src="/app.js"></script>
+</body>
+</html>

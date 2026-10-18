@@ -9,7 +9,9 @@ recipes still apply to the shape of each test.
    Japanese text, accessibility smoke, scenario, flaky rules). Find it in `CATALOG.json` or with
    `python3 tools/catalog.py find <words>`.
 2. Read only that recipe's card. Copy its file, never retype it. Rename the names, keep the structure.
-3. Do not install another test library or guess an API from another version: the versions are pinned in
+3. Copy with `python3 tools/catalog.py copy <name> --language python|js --out <folder>` (it never overwrites), or
+   by hand from the card's list. Replace `sample_app` with the project's app.
+4. Do not install another test library or guess an API from another version: the versions are pinned in
    `package.json`, `package-lock.json`, `pyproject.toml` and `requirements.lock`.
 
 ## Rules for every test
@@ -29,7 +31,10 @@ recipes still apply to the shape of each test.
 Every control a person can use has at least one end-to-end step that uses it. Every Given/When/Then scenario of a task
 is one end-to-end test whose name is the scenario's title. When you remove a control, remove its test knowingly and
 say so ("Removed: the Delete button and its test"); `tools/e2e_coverage.py` fails on a test whose control is gone and
-reports controls no test uses.
+reports controls no test uses. Run it on the project:
+`python3 tools/e2e_coverage.py --pages <pages> --tests <e2e tests and page objects> [--messages <messages/*.json>]`.
+For each task's scenarios: `python3 tools/scenarios.py skeleton TASK.md --lang python|js`, fill the tests, then
+`python3 tools/scenarios.py check TASK.md --tests <files> --junit <report>`.
 
 ## Boundaries
 

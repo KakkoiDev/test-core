@@ -1,0 +1,20 @@
+{
+  "name": "test-core",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Pinned test tools and copyable test recipes for JavaScript (Vitest, @playwright/test).",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=22.13"
+  },
+  "scripts": {
+    "test": "vitest run && node --test recipes/js/unit-nodeps/slug.nodetest.js && playwright test",
+    "test:unit": "vitest run && node --test recipes/js/unit-nodeps/slug.nodetest.js",
+    "test:e2e": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.56.1",
+    "vitest": "5.0.3"
+  }
+}

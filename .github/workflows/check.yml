@@ -1,0 +1,55 @@
+name: Check
+on: [push, pull_request]
+permissions:
+  contents: read
+env:
+  PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1' # installs never fetch a browser; the step below is the only download
+jobs:
+  python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install --require-hashes -r requirements.lock
+      - name: Browser (the official Playwright install, CI only)
+        run: PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD= python -m playwright install --with-deps chromium
+      - name: Tools, catalog and every Python recipe's own tests (offline)
+        run: python -m pytest --junitxml=.test-output/pytest-junit.xml
+      - run: python -m unittest discover -s recipes/python/unit-nodeps
+      - name: Each scenario of the example task has a test that ran and passed
+        run: python tools/scenarios.py check recipes/shared/task-example.md --tests recipes/python/scenario-e2e/test_task_scenarios.py --junit .test-output/pytest-junit.xml
+      - run: python tools/catalog.py check
+      - run: python tools/flaky_lint.py recipes sample_app
+      - name: The E2E rule on the sample app
+        run: >-
+          python tools/e2e_coverage.py --pages sample_app/static/index.html
+          --messages 'sample_app/static/messages/*.json'
+          --tests 'recipes/python/**/*.py' 'recipes/js/**/*.spec.js' recipes/js/e2e-journey/tasks-page.js
+  javascript:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: npm ci
+      - name: Browser (the official Playwright install, CI only)
+        run: PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD= npx playwright install --with-deps chromium
+      - name: Unit and integration recipes (Vitest)
+        run: npx vitest run
+      - name: No-dependency recipe (node --test)
+        run: node --test recipes/js/unit-nodeps/slug.nodetest.js
+      - name: End-to-end recipes (@playwright/test)
+        run: npx playwright test
+      - name: Each scenario of the example task has a test that ran and passed
+        run: python3 tools/scenarios.py check recipes/shared/task-example.md --tests recipes/js/scenario-e2e/task-scenarios.spec.js --junit .test-output/playwright-junit.xml
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-output
+          path: .test-output/
