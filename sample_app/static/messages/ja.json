@@ -1,0 +1,18 @@
+{
+  "title": "タスク",
+  "switchTo": "English",
+  "signIn": "ログイン",
+  "email": "メールアドレス",
+  "password": "パスワード",
+  "signInError": "メールアドレスまたはパスワードが違います。",
+  "signOut": "ログアウト",
+  "signedInAs": "{email} でログイン中",
+  "newTask": "新しいタスク",
+  "add": "追加",
+  "delete": "削除",
+  "tip": "ヒント",
+  "tipUnavailable": "ヒントを読み込めません。",
+  "offline": "オフラインです。変更には接続が必要です。",
+  "count_one": "1 件のタスク",
+  "count": "{n} 件のタスク"
+}

@@ -1,0 +1,913 @@
+{
+ "schema_version": 1,
+ "note": "One entry per recipe: a card (README.md), copyable files and the command that runs its own tests. tools/catalog.py check keeps this in step with recipes/.",
+ "tools": {
+  "python": {
+   "pytest": "9.1.1",
+   "pytest-playwright": "0.9.0",
+   "playwright": "1.56.0",
+   "fastapi": "0.142.2",
+   "httpx": "0.28.1",
+   "uvicorn": "0.53.0"
+  },
+  "js": {
+   "vitest": "5.0.3",
+   "@playwright/test": "1.56.1"
+  },
+  "browser": {
+   "chromium": "Playwright build 1194 (headless shell); flags --use-mock-keychain --password-store=basic"
+  }
+ },
+ "checkers": [
+  {
+   "name": "e2e-coverage",
+   "file": "tools/e2e_coverage.py",
+   "purpose": "Every control has an e2e step; orphaned tests and untested controls fail.",
+   "keywords": {
+    "en": [
+     "e2e rule",
+     "coverage",
+     "control",
+     "removed button",
+     "orphaned test"
+    ],
+    "ja": [
+     "E2Eルール",
+     "カバレッジ",
+     "操作要素",
+     "削除したボタン",
+     "孤立したテスト"
+    ]
+   }
+  },
+  {
+   "name": "scenarios",
+   "file": "tools/scenarios.py",
+   "purpose": "Given/When/Then scenarios in a task file: list, test skeleton, check each has its (passing) test.",
+   "keywords": {
+    "en": [
+     "scenario",
+     "given when then",
+     "skeleton",
+     "task"
+    ],
+    "ja": [
+     "シナリオ",
+     "雛形",
+     "タスク"
+    ]
+   }
+  },
+  {
+   "name": "flaky-lint",
+   "file": "tools/flaky_lint.py",
+   "purpose": "Find sleeps, fixed waits, focused tests, network-idle waits and real hosts in tests.",
+   "keywords": {
+    "en": [
+     "flaky",
+     "sleep",
+     "lint"
+    ],
+    "ja": [
+     "不安定なテスト",
+     "スリープ",
+     "検査"
+    ]
+   }
+  }
+ ],
+ "recipes": [
+  {
+   "name": "unit-table",
+   "language": "python",
+   "kind": "unit",
+   "tool": "pytest",
+   "purpose": "Test a pure function with a table of cases: one row per behaviour.",
+   "keywords": {
+    "en": [
+     "unit test",
+     "table-driven",
+     "parametrize",
+     "pure function",
+     "calculation",
+     "validation"
+    ],
+    "ja": [
+     "単体テスト",
+     "ユニットテスト",
+     "テーブル駆動",
+     "パラメータ化",
+     "純粋関数",
+     "計算"
+    ]
+   },
+   "card": "recipes/python/unit-table/README.md",
+   "files": [
+    "recipes/python/unit-table/price.py",
+    "recipes/python/unit-table/test_price_table.py"
+   ],
+   "needs": [],
+   "test": "pytest recipes/python/unit-table"
+  },
+  {
+   "name": "unit-nodeps",
+   "language": "python",
+   "kind": "unit",
+   "tool": "stdlib unittest",
+   "purpose": "A unit test with the standard library only, for a project that installs nothing.",
+   "keywords": {
+    "en": [
+     "no dependencies",
+     "standard library",
+     "unittest",
+     "node --test",
+     "starter"
+    ],
+    "ja": [
+     "依存なし",
+     "標準ライブラリ",
+     "単体テスト",
+     "スターター"
+    ]
+   },
+   "card": "recipes/python/unit-nodeps/README.md",
+   "files": [
+    "recipes/python/unit-nodeps/slug.py",
+    "recipes/python/unit-nodeps/test_slug_unittest.py"
+   ],
+   "needs": [],
+   "test": "pytest recipes/python/unit-nodeps"
+  },
+  {
+   "name": "integration-route-db",
+   "language": "python",
+   "kind": "integration",
+   "tool": "pytest + FastAPI TestClient",
+   "purpose": "Call real routes against a real database file in a temporary folder.",
+   "keywords": {
+    "en": [
+     "integration test",
+     "api route",
+     "endpoint",
+     "database",
+     "temporary database",
+     "sqlite",
+     "http"
+    ],
+    "ja": [
+     "結合テスト",
+     "統合テスト",
+     "APIルート",
+     "エンドポイント",
+     "データベース",
+     "一時データベース"
+    ]
+   },
+   "card": "recipes/python/integration-route-db/README.md",
+   "files": [
+    "recipes/python/integration-route-db/test_tasks_api.py"
+   ],
+   "needs": [],
+   "test": "pytest recipes/python/integration-route-db"
+  },
+  {
+   "name": "e2e-journey",
+   "language": "python",
+   "kind": "e2e",
+   "tool": "pytest-playwright",
+   "purpose": "A person's whole journey in a real browser, written through a page object.",
+   "keywords": {
+    "en": [
+     "end to end",
+     "e2e",
+     "browser",
+     "journey",
+     "page object",
+     "user flow",
+     "playwright"
+    ],
+    "ja": [
+     "E2Eテスト",
+     "エンドツーエンド",
+     "ブラウザ",
+     "ユーザーフロー",
+     "ページオブジェクト"
+    ]
+   },
+   "card": "recipes/python/e2e-journey/README.md",
+   "files": [
+    "recipes/python/e2e-journey/tasks_page.py",
+    "recipes/python/e2e-journey/test_task_journey.py"
+   ],
+   "needs": [
+    "recipes/python/conftest.py",
+    "recipes/python/live_server.py",
+    "recipes/python/data-builders/builders.py"
+   ],
+   "test": "pytest recipes/python/e2e-journey"
+  },
+  {
+   "name": "fixtures",
+   "language": "python",
+   "kind": "fixtures",
+   "tool": "pytest fixtures",
+   "purpose": "Start a test already signed in, with sample data in place.",
+   "keywords": {
+    "en": [
+     "fixture",
+     "logged in",
+     "signed in",
+     "login state",
+     "auth state",
+     "sample data",
+     "seed"
+    ],
+    "ja": [
+     "フィクスチャ",
+     "ログイン済み",
+     "ログイン状態",
+     "認証状態",
+     "サンプルデータ",
+     "初期データ"
+    ]
+   },
+   "card": "recipes/python/fixtures/README.md",
+   "files": [
+    "recipes/python/fixtures/test_fixtures.py"
+   ],
+   "needs": [
+    "recipes/python/conftest.py",
+    "recipes/python/live_server.py",
+    "recipes/python/data-builders/builders.py"
+   ],
+   "test": "pytest recipes/python/fixtures"
+  },
+  {
+   "name": "data-builders",
+   "language": "python",
+   "kind": "fixtures",
+   "tool": "plain Python",
+   "purpose": "Make test records with builders: valid unique defaults plus overrides.",
+   "keywords": {
+    "en": [
+     "test data",
+     "builder",
+     "factory",
+     "sample record",
+     "fake data"
+    ],
+    "ja": [
+     "テストデータ",
+     "ビルダー",
+     "ファクトリ",
+     "サンプルレコード"
+    ]
+   },
+   "card": "recipes/python/data-builders/README.md",
+   "files": [
+    "recipes/python/data-builders/builders.py",
+    "recipes/python/data-builders/test_builders.py"
+   ],
+   "needs": [],
+   "test": "pytest recipes/python/data-builders"
+  },
+  {
+   "name": "network-stub",
+   "language": "python",
+   "kind": "e2e",
+   "tool": "pytest-playwright",
+   "purpose": "Tests never reach the network: stub the request in the browser and in code.",
+   "keywords": {
+    "en": [
+     "network stub",
+     "mock",
+     "fake api",
+     "offline test",
+     "route",
+     "third-party api",
+     "error state"
+    ],
+    "ja": [
+     "ネットワークスタブ",
+     "モック",
+     "API偽装",
+     "外部API",
+     "エラー状態"
+    ]
+   },
+   "card": "recipes/python/network-stub/README.md",
+   "files": [
+    "recipes/python/network-stub/test_network_stub.py",
+    "recipes/python/network-stub/tips.py"
+   ],
+   "needs": [
+    "recipes/python/conftest.py",
+    "recipes/python/live_server.py",
+    "recipes/python/data-builders/builders.py"
+   ],
+   "test": "pytest recipes/python/network-stub"
+  },
+  {
+   "name": "offline-phone",
+   "language": "python",
+   "kind": "e2e",
+   "tool": "pytest-playwright",
+   "purpose": "Check the app offline and at a phone's size with touch.",
+   "keywords": {
+    "en": [
+     "offline",
+     "phone",
+     "mobile",
+     "viewport",
+     "responsive",
+     "touch"
+    ],
+    "ja": [
+     "オフライン",
+     "スマホ",
+     "モバイル",
+     "画面サイズ",
+     "レスポンシブ",
+     "タッチ"
+    ]
+   },
+   "card": "recipes/python/offline-phone/README.md",
+   "files": [
+    "recipes/python/offline-phone/test_offline.py",
+    "recipes/python/offline-phone/test_phone.py"
+   ],
+   "needs": [
+    "recipes/python/conftest.py",
+    "recipes/python/live_server.py",
+    "recipes/python/data-builders/builders.py"
+   ],
+   "test": "pytest recipes/python/offline-phone"
+  },
+  {
+   "name": "japanese-text",
+   "language": "python",
+   "kind": "e2e",
+   "tool": "pytest-playwright",
+   "purpose": "Japanese in the page, in input and in storage: names, IME input, NFC normalization.",
+   "keywords": {
+    "en": [
+     "japanese",
+     "i18n",
+     "translation",
+     "unicode",
+     "normalization",
+     "ime",
+     "language switch"
+    ],
+    "ja": [
+     "日本語",
+     "多言語",
+     "翻訳",
+     "文字コード",
+     "正規化",
+     "IME",
+     "言語切り替え"
+    ]
+   },
+   "card": "recipes/python/japanese-text/README.md",
+   "files": [
+    "recipes/python/japanese-text/test_japanese_text.py"
+   ],
+   "needs": [
+    "recipes/python/conftest.py",
+    "recipes/python/live_server.py",
+    "recipes/python/data-builders/builders.py"
+   ],
+   "test": "pytest recipes/python/japanese-text"
+  },
+  {
+   "name": "a11y-smoke",
+   "language": "python",
+   "kind": "e2e",
+   "tool": "pytest-playwright",
+   "purpose": "A quick accessibility check on every page state, plus keyboard reach.",
+   "keywords": {
+    "en": [
+     "accessibility",
+     "a11y",
+     "label",
+     "alt text",
+     "keyboard",
+     "tab order",
+     "screen reader"
+    ],
+    "ja": [
+     "アクセシビリティ",
+     "ラベル",
+     "代替テキスト",
+     "キーボード操作",
+     "タブ順",
+     "スクリーンリーダー"
+    ]
+   },
+   "card": "recipes/python/a11y-smoke/README.md",
+   "files": [
+    "recipes/python/a11y-smoke/a11y_smoke.py",
+    "recipes/python/a11y-smoke/test_a11y_smoke.py"
+   ],
+   "needs": [
+    "recipes/python/conftest.py",
+    "recipes/python/live_server.py",
+    "recipes/python/data-builders/builders.py",
+    "recipes/shared/a11y-smoke.js"
+   ],
+   "test": "pytest recipes/python/a11y-smoke"
+  },
+  {
+   "name": "scenario-e2e",
+   "language": "python",
+   "kind": "e2e",
+   "tool": "pytest-playwright",
+   "purpose": "Each Given/When/Then scenario of a task becomes one e2e test named after its title.",
+   "keywords": {
+    "en": [
+     "scenario",
+     "given when then",
+     "gherkin",
+     "user story",
+     "acceptance",
+     "bdd",
+     "task"
+    ],
+    "ja": [
+     "シナリオ",
+     "ユーザーストーリー",
+     "受け入れ条件",
+     "Given When Then",
+     "タスク"
+    ]
+   },
+   "card": "recipes/python/scenario-e2e/README.md",
+   "files": [
+    "recipes/python/scenario-e2e/test_task_scenarios.py"
+   ],
+   "needs": [
+    "recipes/python/conftest.py",
+    "recipes/python/live_server.py",
+    "recipes/python/data-builders/builders.py",
+    "recipes/shared/task-example.md",
+    "tools/scenarios.py"
+   ],
+   "test": "pytest recipes/python/scenario-e2e"
+  },
+  {
+   "name": "flaky-rules",
+   "language": "python",
+   "kind": "rules",
+   "tool": "pytest-playwright",
+   "purpose": "Wait for the state, never for time: the rules and the ways to wait.",
+   "keywords": {
+    "en": [
+     "flaky",
+     "wait",
+     "sleep",
+     "timeout",
+     "race",
+     "deterministic",
+     "retry"
+    ],
+    "ja": [
+     "不安定なテスト",
+     "待機",
+     "スリープ",
+     "タイムアウト",
+     "競合",
+     "再実行"
+    ]
+   },
+   "card": "recipes/python/flaky-rules/README.md",
+   "files": [
+    "recipes/python/flaky-rules/test_wait_for_state.py"
+   ],
+   "needs": [
+    "recipes/python/conftest.py",
+    "recipes/python/live_server.py",
+    "recipes/python/data-builders/builders.py",
+    "tools/flaky_lint.py"
+   ],
+   "test": "pytest recipes/python/flaky-rules"
+  },
+  {
+   "name": "unit-table",
+   "language": "js",
+   "kind": "unit",
+   "tool": "Vitest",
+   "purpose": "Test a pure function with a table of cases: one row per behaviour.",
+   "keywords": {
+    "en": [
+     "unit test",
+     "table-driven",
+     "parametrize",
+     "pure function",
+     "calculation",
+     "validation"
+    ],
+    "ja": [
+     "単体テスト",
+     "ユニットテスト",
+     "テーブル駆動",
+     "パラメータ化",
+     "純粋関数",
+     "計算"
+    ]
+   },
+   "card": "recipes/js/unit-table/README.md",
+   "files": [
+    "recipes/js/unit-table/price.js",
+    "recipes/js/unit-table/price.test.js"
+   ],
+   "needs": [],
+   "test": "npx vitest run recipes/js/unit-table"
+  },
+  {
+   "name": "unit-nodeps",
+   "language": "js",
+   "kind": "unit",
+   "tool": "node --test",
+   "purpose": "A unit test with the standard library only, for a project that installs nothing.",
+   "keywords": {
+    "en": [
+     "no dependencies",
+     "standard library",
+     "unittest",
+     "node --test",
+     "starter"
+    ],
+    "ja": [
+     "依存なし",
+     "標準ライブラリ",
+     "単体テスト",
+     "スターター"
+    ]
+   },
+   "card": "recipes/js/unit-nodeps/README.md",
+   "files": [
+    "recipes/js/unit-nodeps/slug.js",
+    "recipes/js/unit-nodeps/slug.nodetest.js"
+   ],
+   "needs": [],
+   "test": "node --test recipes/js/unit-nodeps/slug.nodetest.js"
+  },
+  {
+   "name": "integration-route-db",
+   "language": "js",
+   "kind": "integration",
+   "tool": "Vitest",
+   "purpose": "Call real routes against a real database file in a temporary folder.",
+   "keywords": {
+    "en": [
+     "integration test",
+     "api route",
+     "endpoint",
+     "database",
+     "temporary database",
+     "sqlite",
+     "http"
+    ],
+    "ja": [
+     "結合テスト",
+     "統合テスト",
+     "APIルート",
+     "エンドポイント",
+     "データベース",
+     "一時データベース"
+    ]
+   },
+   "card": "recipes/js/integration-route-db/README.md",
+   "files": [
+    "recipes/js/integration-route-db/tasks-api.test.js"
+   ],
+   "needs": [],
+   "test": "npx vitest run recipes/js/integration-route-db"
+  },
+  {
+   "name": "e2e-journey",
+   "language": "js",
+   "kind": "e2e",
+   "tool": "@playwright/test",
+   "purpose": "A person's whole journey in a real browser, written through a page object.",
+   "keywords": {
+    "en": [
+     "end to end",
+     "e2e",
+     "browser",
+     "journey",
+     "page object",
+     "user flow",
+     "playwright"
+    ],
+    "ja": [
+     "E2Eテスト",
+     "エンドツーエンド",
+     "ブラウザ",
+     "ユーザーフロー",
+     "ページオブジェクト"
+    ]
+   },
+   "card": "recipes/js/e2e-journey/README.md",
+   "files": [
+    "recipes/js/e2e-journey/task-journey.spec.js",
+    "recipes/js/e2e-journey/tasks-page.js"
+   ],
+   "needs": [
+    "recipes/js/fixtures.js",
+    "playwright.config.js",
+    "recipes/js/data-builders/builders.js"
+   ],
+   "test": "npx playwright test recipes/js/e2e-journey"
+  },
+  {
+   "name": "fixtures",
+   "language": "js",
+   "kind": "fixtures",
+   "tool": "@playwright/test fixtures",
+   "purpose": "Start a test already signed in, with sample data in place.",
+   "keywords": {
+    "en": [
+     "fixture",
+     "logged in",
+     "signed in",
+     "login state",
+     "auth state",
+     "sample data",
+     "seed"
+    ],
+    "ja": [
+     "フィクスチャ",
+     "ログイン済み",
+     "ログイン状態",
+     "認証状態",
+     "サンプルデータ",
+     "初期データ"
+    ]
+   },
+   "card": "recipes/js/fixtures/README.md",
+   "files": [
+    "recipes/js/fixtures/fixtures.spec.js"
+   ],
+   "needs": [
+    "recipes/js/fixtures.js",
+    "playwright.config.js",
+    "recipes/js/data-builders/builders.js"
+   ],
+   "test": "npx playwright test recipes/js/fixtures"
+  },
+  {
+   "name": "data-builders",
+   "language": "js",
+   "kind": "fixtures",
+   "tool": "plain JavaScript",
+   "purpose": "Make test records with builders: valid unique defaults plus overrides.",
+   "keywords": {
+    "en": [
+     "test data",
+     "builder",
+     "factory",
+     "sample record",
+     "fake data"
+    ],
+    "ja": [
+     "テストデータ",
+     "ビルダー",
+     "ファクトリ",
+     "サンプルレコード"
+    ]
+   },
+   "card": "recipes/js/data-builders/README.md",
+   "files": [
+    "recipes/js/data-builders/builders.js",
+    "recipes/js/data-builders/builders.test.js"
+   ],
+   "needs": [],
+   "test": "npx vitest run recipes/js/data-builders"
+  },
+  {
+   "name": "network-stub",
+   "language": "js",
+   "kind": "e2e",
+   "tool": "@playwright/test",
+   "purpose": "Tests never reach the network: stub the request in the browser and in code.",
+   "keywords": {
+    "en": [
+     "network stub",
+     "mock",
+     "fake api",
+     "offline test",
+     "route",
+     "third-party api",
+     "error state"
+    ],
+    "ja": [
+     "ネットワークスタブ",
+     "モック",
+     "API偽装",
+     "外部API",
+     "エラー状態"
+    ]
+   },
+   "card": "recipes/js/network-stub/README.md",
+   "files": [
+    "recipes/js/network-stub/network-stub.spec.js",
+    "recipes/js/network-stub/tips.js",
+    "recipes/js/network-stub/tips.test.js"
+   ],
+   "needs": [
+    "recipes/js/fixtures.js",
+    "playwright.config.js",
+    "recipes/js/data-builders/builders.js"
+   ],
+   "test": "npx vitest run recipes/js/network-stub && npx playwright test recipes/js/network-stub"
+  },
+  {
+   "name": "offline-phone",
+   "language": "js",
+   "kind": "e2e",
+   "tool": "@playwright/test",
+   "purpose": "Check the app offline and at a phone's size with touch.",
+   "keywords": {
+    "en": [
+     "offline",
+     "phone",
+     "mobile",
+     "viewport",
+     "responsive",
+     "touch"
+    ],
+    "ja": [
+     "オフライン",
+     "スマホ",
+     "モバイル",
+     "画面サイズ",
+     "レスポンシブ",
+     "タッチ"
+    ]
+   },
+   "card": "recipes/js/offline-phone/README.md",
+   "files": [
+    "recipes/js/offline-phone/offline.spec.js",
+    "recipes/js/offline-phone/phone.spec.js"
+   ],
+   "needs": [
+    "recipes/js/fixtures.js",
+    "playwright.config.js",
+    "recipes/js/data-builders/builders.js"
+   ],
+   "test": "npx playwright test recipes/js/offline-phone"
+  },
+  {
+   "name": "japanese-text",
+   "language": "js",
+   "kind": "e2e",
+   "tool": "@playwright/test",
+   "purpose": "Japanese in the page, in input and in storage: names, IME input, NFC normalization.",
+   "keywords": {
+    "en": [
+     "japanese",
+     "i18n",
+     "translation",
+     "unicode",
+     "normalization",
+     "ime",
+     "language switch"
+    ],
+    "ja": [
+     "日本語",
+     "多言語",
+     "翻訳",
+     "文字コード",
+     "正規化",
+     "IME",
+     "言語切り替え"
+    ]
+   },
+   "card": "recipes/js/japanese-text/README.md",
+   "files": [
+    "recipes/js/japanese-text/clean-title.test.js",
+    "recipes/js/japanese-text/japanese-text.spec.js"
+   ],
+   "needs": [
+    "recipes/js/fixtures.js",
+    "playwright.config.js",
+    "recipes/js/data-builders/builders.js"
+   ],
+   "test": "npx vitest run recipes/js/japanese-text && npx playwright test recipes/js/japanese-text"
+  },
+  {
+   "name": "a11y-smoke",
+   "language": "js",
+   "kind": "e2e",
+   "tool": "@playwright/test",
+   "purpose": "A quick accessibility check on every page state, plus keyboard reach.",
+   "keywords": {
+    "en": [
+     "accessibility",
+     "a11y",
+     "label",
+     "alt text",
+     "keyboard",
+     "tab order",
+     "screen reader"
+    ],
+    "ja": [
+     "アクセシビリティ",
+     "ラベル",
+     "代替テキスト",
+     "キーボード操作",
+     "タブ順",
+     "スクリーンリーダー"
+    ]
+   },
+   "card": "recipes/js/a11y-smoke/README.md",
+   "files": [
+    "recipes/js/a11y-smoke/a11y-smoke.js",
+    "recipes/js/a11y-smoke/a11y-smoke.spec.js"
+   ],
+   "needs": [
+    "recipes/js/fixtures.js",
+    "playwright.config.js",
+    "recipes/js/data-builders/builders.js",
+    "recipes/shared/a11y-smoke.js"
+   ],
+   "test": "npx playwright test recipes/js/a11y-smoke"
+  },
+  {
+   "name": "scenario-e2e",
+   "language": "js",
+   "kind": "e2e",
+   "tool": "@playwright/test",
+   "purpose": "Each Given/When/Then scenario of a task becomes one e2e test named after its title.",
+   "keywords": {
+    "en": [
+     "scenario",
+     "given when then",
+     "gherkin",
+     "user story",
+     "acceptance",
+     "bdd",
+     "task"
+    ],
+    "ja": [
+     "シナリオ",
+     "ユーザーストーリー",
+     "受け入れ条件",
+     "Given When Then",
+     "タスク"
+    ]
+   },
+   "card": "recipes/js/scenario-e2e/README.md",
+   "files": [
+    "recipes/js/scenario-e2e/task-scenarios.spec.js"
+   ],
+   "needs": [
+    "recipes/js/fixtures.js",
+    "playwright.config.js",
+    "recipes/js/data-builders/builders.js",
+    "recipes/shared/task-example.md",
+    "tools/scenarios.py"
+   ],
+   "test": "npx playwright test recipes/js/scenario-e2e"
+  },
+  {
+   "name": "flaky-rules",
+   "language": "js",
+   "kind": "rules",
+   "tool": "@playwright/test",
+   "purpose": "Wait for the state, never for time: the rules and the ways to wait.",
+   "keywords": {
+    "en": [
+     "flaky",
+     "wait",
+     "sleep",
+     "timeout",
+     "race",
+     "deterministic",
+     "retry"
+    ],
+    "ja": [
+     "不安定なテスト",
+     "待機",
+     "スリープ",
+     "タイムアウト",
+     "競合",
+     "再実行"
+    ]
+   },
+   "card": "recipes/js/flaky-rules/README.md",
+   "files": [
+    "recipes/js/flaky-rules/wait-for-state.spec.js"
+   ],
+   "needs": [
+    "recipes/js/fixtures.js",
+    "playwright.config.js",
+    "recipes/js/data-builders/builders.js",
+    "tools/flaky_lint.py"
+   ],
+   "test": "npx playwright test recipes/js/flaky-rules"
+  }
+ ]
+}

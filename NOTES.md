@@ -34,6 +34,12 @@ Apps under test are served locally on port 0.
 A fixed sleep is either too short on a slow machine or wastes time on a fast one. Wait for the element, the response or
 the value. A test that passes alone and fails in the full suite is a bug in the test (shared state, order or time).
 
-## 4. Live journeys are opt-in
+## 4. Wait for the app to be ready before the first click
+
+A click that lands before the page's script has attached its handlers is lost, or submits a form natively (putting
+its fields in the URL). Found by test-core's first CI run: the sign-in journey passed on a fast laptop and failed on
+the slower CI machine. The app marks itself ready (`<body data-ready="true">`); page objects wait for it in `open()`.
+
+## 5. Live journeys are opt-in
 
 Journeys against a real local model or a real service are separate from the offline gate and never block it.

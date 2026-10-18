@@ -1,0 +1,24 @@
+[project]
+name = "test-core"
+version = "0.1.0"
+description = "Pinned test tools and copyable test recipes for Python (pytest, FastAPI TestClient, pytest-playwright)."
+license = "MIT"
+requires-python = ">=3.11"
+# Exact pins. The full, hashed set (with every transitive package) is requirements.lock:
+#   uv pip compile pyproject.toml --universal --generate-hashes --python-version 3.11 --exclude-newer 2026-10-05 -o requirements.lock
+dependencies = [
+    "pytest==9.1.1",
+    "pytest-playwright==0.9.0",
+    "playwright==1.56.0",
+    "fastapi==0.142.2",
+    "httpx==0.28.1",
+    "uvicorn==0.53.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests", "recipes/python", "sample-app/python"]
+addopts = "-p no:cacheprovider --browser chromium"
+pythonpath = ["."]
+# Starlette 1.x prefers httpx2 for TestClient and warns about httpx; httpx stays the decided client (see the PR).
+filterwarnings = ["ignore:Using `httpx` with `starlette.testclient` is deprecated"]
+markers = ["scenario(title): the Given/When/Then scenario this test implements (recipe scenario-e2e)"]
