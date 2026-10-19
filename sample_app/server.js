@@ -6,14 +6,14 @@ import { createServer } from 'node:http';
 import { extname, join, normalize } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { fileURLToPath } from 'node:url';
+import { validTitle } from './static/tasks.js';
 
 const STATIC = fileURLToPath(new URL('./static/', import.meta.url));
 export const TEST_USERS = { 'demo@example.com': 'test-password' };
 export const TIP = 'Write the test first, watch it fail, then make it pass.';
 const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json' };
 
-/** Trim and compose (NFC) a title, so 'か' + U+3099 is stored as 'が' (recipe japanese-text). */
-export const cleanTitle = (title) => String(title ?? '').normalize('NFC').trim();
+export { cleanTitle } from './static/tasks.js'; // recipe japanese-text
 
 export function createApp({ dbPath, users = TEST_USERS }) {
   const sessions = new Map();
@@ -54,8 +54,8 @@ export function createApp({ dbPath, users = TEST_USERS }) {
       if (route === 'GET /api/me') return send(200, { email: owner });
       if (route === 'GET /api/tasks') return send(200, db.prepare('SELECT * FROM tasks WHERE owner = ? ORDER BY id').all(owner).map(taskJSON));
       if (route === 'POST /api/tasks') {
-        const title = cleanTitle(body.title);
-        if (!title || title.length > 200) return send(422, { error: 'A title has 1 to 200 characters.' });
+        let title;
+        try { title = validTitle(body.title); } catch (error) { return send(422, { error: error.message }); }
         const { lastInsertRowid } = db.prepare('INSERT INTO tasks (owner, title) VALUES (?, ?)').run(owner, title);
         return send(201, taskJSON(db.prepare('SELECT * FROM tasks WHERE id = ?').get(lastInsertRowid)));
       }

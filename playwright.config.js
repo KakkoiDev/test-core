@@ -7,8 +7,9 @@ export const CHROMIUM_FLAGS = ['--use-mock-keychain', '--password-store=basic'];
 const chrome = process.env.TEST_CORE_CHROME || process.env.PI_TEST_CHROME; // an existing Chromium: nothing downloads
 
 export default defineConfig({
-  testDir: 'recipes/js',
-  testMatch: '**/*.spec.js',
+  testDir: '.',
+  testMatch: ['recipes/js/**/*.spec.js', 'tests/js/**/*.spec.js'],
+  testIgnore: ['**/node_modules/**'],
   forbidOnly: true,
   retries: 0, // a flaky test is fixed, not retried (recipe flaky-rules)
   reporter: [['list'], ['junit', { outputFile: '.test-output/playwright-junit.xml' }]],

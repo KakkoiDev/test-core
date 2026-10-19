@@ -174,3 +174,13 @@ def test_the_repository_follows_the_e2e_rule(capsys):
 
 def test_nothing_to_check_is_not_a_pass(tmp_path):
     assert e2e_coverage.main(["--pages", str(tmp_path / "none*.html"), "--tests", str(tmp_path / "none*.py")]) == 2
+
+
+def test_the_functional_control_primitive_counts_as_a_locator(tmp_path):
+    page = write(tmp_path, "page.html", '<button>Log In</button><label for="e">Email</label><input id="e"><a href="/">Gone</a>')
+    py = write(tmp_path, "block.py", 'def submit(self):\n    return p.control(self.form(), role="button", name="Log In", block=BLOCK)\n'
+                                     'def email(self):\n    return p.control(self.page, label="Email")\n')
+    js = write(tmp_path, "block.js", "  async signUp() {\n    return p.control(await this.form(), { role: 'link', name: 'Sign Up', block: BLOCK });\n  }\n")
+    result = e2e_coverage.run([page], [py, js], [], "data-text")
+    assert [c.describe() for c in result["untested"]] == ['link "Gone"']
+    assert [r.source for r in result["orphans"]] == ["control(await this.form(), { role: 'link', name: 'Sign Up', block: BLOCK });"]

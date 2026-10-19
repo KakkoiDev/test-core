@@ -20,8 +20,21 @@ jobs:
       - run: python -m unittest discover -s recipes/python/unit-nodeps
       - name: Each scenario of the example task has a test that ran and passed
         run: python tools/scenarios.py check recipes/shared/task-example.md --tests recipes/python/scenario-e2e/test_task_scenarios.py --junit .test-output/pytest-junit.xml
+      - name: Every scenario of the example task has a test at each level (functional runner) that ran and passed
+        run: >-
+          python tools/scenarios.py check recipes/shared/task-example.md --junit .test-output/pytest-junit.xml
+          --tests recipes/python/scenario-steps/test_task_steps_unit.py recipes/python/scenario-steps/test_task_steps_integration.py
+          recipes/python/scenario-steps/test_task_steps_e2e.py
+      - name: The example task uses only known steps, at every level
+        run: |
+          for level in unit integration e2e; do
+            python tools/vocab.py check recipes/shared/task-example.md --vocab recipes/shared/task-example.vocab.json --level $level
+          done
+      - run: python tools/vocab.py validate recipes/shared/task-example.vocab.json functional/blocks/vocabulary.json
+      - name: The test blocks are generated from the App Blocks (fixture copy) and up to date
+        run: python tools/blocks_from_app_blocks.py --kit tests/fixtures/app-blocks --check
       - run: python tools/catalog.py check
-      - run: python tools/flaky_lint.py recipes sample_app
+      - run: python tools/flaky_lint.py recipes sample_app functional tests/functional tests/js
       - name: The E2E rule on the sample app
         run: >-
           python tools/e2e_coverage.py --pages sample_app/static/index.html
@@ -40,14 +53,16 @@ jobs:
       - run: npm ci
       - name: Browser (the official Playwright install, CI only)
         run: PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD= npx playwright install --with-deps chromium
-      - name: Unit and integration recipes (Vitest)
+      - name: Unit and integration recipes, functional/js (Vitest)
         run: npx vitest run
       - name: No-dependency recipe (node --test)
         run: node --test recipes/js/unit-nodeps/slug.nodetest.js
-      - name: End-to-end recipes (@playwright/test)
+      - name: End-to-end recipes, primitives and test-block self-tests (@playwright/test)
         run: npx playwright test
       - name: Each scenario of the example task has a test that ran and passed
         run: python3 tools/scenarios.py check recipes/shared/task-example.md --tests recipes/js/scenario-e2e/task-scenarios.spec.js --junit .test-output/playwright-junit.xml
+      - name: The same through the functional runner (e2e level)
+        run: python3 tools/scenarios.py check recipes/shared/task-example.md --tests recipes/js/scenario-steps/task-steps.spec.js --junit .test-output/playwright-junit.xml
       - uses: actions/upload-artifact@v4
         if: failure()
         with:

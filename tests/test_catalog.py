@@ -12,7 +12,7 @@ def test_the_catalog_is_in_step_with_the_recipes():
 
 def test_every_recipe_has_both_languages_and_its_own_test():
     recipes = catalog.load()["recipes"]
-    assert len(recipes) == 24
+    assert len(recipes) == 26
     assert {r["name"] for r in recipes if r["language"] == "python"} == {r["name"] for r in recipes if r["language"] == "js"}
 
 

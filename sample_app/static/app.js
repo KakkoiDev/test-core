@@ -1,5 +1,6 @@
 // The sample app every e2e recipe tests: sign in, add, finish and delete tasks, a tip from the server,
 // an offline banner and English/Japanese texts. Plain ES module, no build step.
+import { countText } from './tasks.js';
 
 const TEXTS = {
   en: await (await fetch('/messages/en.json')).json(),
@@ -11,7 +12,7 @@ let tasks = [];
 let email = null;
 const $ = (selector) => document.querySelector(selector);
 const t = (key, values = {}) => TEXTS[language][key].replace(/\{(\w+)\}/g, (_, name) => values[name]);
-const count = (n) => (n === 1 ? t('count_one') : t('count', { n }));
+const count = (n) => countText(n, TEXTS[language]);
 
 async function api(method, path, body) {
   const response = await fetch(path, {
