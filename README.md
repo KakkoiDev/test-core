@@ -130,3 +130,9 @@ downloaded. Without it, `npx playwright install chromium` provides one (CI does 
 
 Tests are offline: the repository's `conftest.py` fails any Python connection to another machine, and the browser
 fixtures abort any request that leaves 127.0.0.1.
+
+## Privacy-first action recording (initial primitives)
+
+[`recording/`](recording/README.md) provides a dependency-free in-page recorder, a Python normalization boundary and
+Recorder-flow → Python/JavaScript Playwright skeletons. The adopt kit includes and hashes these files. Hosts supply
+consent, delivery, storage and report/context integration; no harness-specific code lives in the library.

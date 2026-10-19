@@ -96,3 +96,13 @@ def test_the_workflow_uses_only_copied_tools():
     workflow = (ROOT / "adopt/templates/test-core.yml").read_text(encoding="utf-8")
     for tool in ["adopt.py --verify", "tools/flaky_lint.py", "tools/vocab.py check", "tools/scenarios.py check", "tools/e2e_coverage.py"]:
         assert f"test-core/{tool}" in workflow
+
+
+def test_recording_primitives_are_pinned_and_work_after_adoption(target):
+    base = target / 'test-core'
+    assert (base / 'recording/flows.py').is_file()
+    assert (base / 'recording/recorder.mjs').is_file()
+    py = run(sys.executable, '-c', "from recording.flows import clean_flow; print(clean_flow({'steps': []})['title'])", cwd=target, env={'PYTHONPATH': 'test-core'})
+    assert py.returncode == 0, py.stderr
+    assert py.stdout.strip() == 'Recorded flow'
+    assert adopt.verify(base) == []
