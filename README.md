@@ -35,10 +35,23 @@ browser asks for a keychain; read [NOTES.md](NOTES.md) before anything else that
 3. Read its card (`recipes/<language>/<name>/README.md`), copy its file into the project, rename and fill it.
 4. Run the tests. A recipe is done when its test passed, and failed first when the change was missing.
 
-Each planned task carries Given/When/Then scenarios; each scenario becomes one end-to-end test with the scenario's
-title as the test's name (recipe `scenario-e2e`). The E2E rule: every control a person can use has at least one
+Each planned task carries Given/When/Then scenarios under `## Scenarios`, headed `### <ID> <title>` (a story id such as
+`US-312`, or `US-new`; `### Scenario: <title>` also works); each scenario becomes one end-to-end test named after its
+heading (recipe `scenario-e2e`). The E2E rule: every control a person can use has at least one
 end-to-end step that uses it, and `tools/e2e_coverage.py` fails when a control disappears while its test stays, or
 when a control has no test.
+
+## Functional tests: primitives → blocks → scenarios
+
+[`functional/`](functional/README.md) (Python) and `functional/js/` (JavaScript, same names): small primitives (find a
+control by role, label or test id; act; read what a person sees; build data; stub the network; freeze time; a temporary
+database) compose into blocks, blocks into scenarios. A step registry binds each phrase of a **fixed vocabulary**
+(`When I add the task {title}`) to one function per level, and the runner reads a task's Gherkin scenarios and runs
+them as unit, integration or e2e tests; an unknown step fails with the nearest known steps (`tools/vocab.py`).
+**Test blocks are generated from Pi Workbench's App Blocks** (`tools/blocks_from_app_blocks.py`): LogIn, DataTable,
+EditForm, EmptyState, Toasts, KpiTile, BarChart and SidePanel each have their steps, a page object, their states and a
+self-test. A control removed while a test uses it fails: "uses a control that no longer exists".
+Other repositories take all of it with one command: [`adopt/`](adopt/README.md).
 
 ## Recipes
 
@@ -60,6 +73,7 @@ purpose, English and Japanese keywords, files, the command that runs them).
 | `a11y-smoke` | e2e | Names, labels, alt, `lang`, one `h1`, tab order, duplicate ids; keyboard reach |
 | `scenario-e2e` | e2e | Given/When/Then scenarios of a task, one e2e test each, named after the scenario |
 | `flaky-rules` | rules | Wait for the state, never for time: the rules and each way to wait |
+| `scenario-steps` | scenario | A fixed step vocabulary, one function per level: the same task runs as unit, integration and e2e tests |
 
 The recipes test `sample_app/`: one small task app (sign in, add, finish, delete, a tip from the server, offline banner,
 English and Japanese) served by FastAPI (`sample_app/app.py`) and by `node:http` + `node:sqlite`
@@ -74,6 +88,9 @@ python3 tools/scenarios.py skeleton TASK.md --lang js     # one test per Given/W
 python3 tools/scenarios.py check TASK.md --tests tests/e2e/task-12.spec.js --junit .test-output/playwright-junit.xml
 python3 tools/e2e_coverage.py --pages 'app/templates/**/*.html' --tests 'tests/e2e/**/*' [--messages 'messages/*.json']
 python3 tools/flaky_lint.py tests/
+python3 tools/vocab.py check TASK.md --vocab VOCAB.json... [--level e2e]   # only known steps; nearest for the rest
+python3 tools/blocks_from_app_blocks.py --kit ~/Code/pi-local-harness [--check]  # test blocks from App Blocks
+python3 adopt/adopt.py ../other-repo [--update]           # copy test-core into another repository, pinned
 ```
 
 The tools need only Python 3.11+ (standard library). `e2e_coverage.py` lists every control of the pages (by role and

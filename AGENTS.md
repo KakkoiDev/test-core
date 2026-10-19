@@ -36,6 +36,15 @@ reports controls no test uses. Run it on the project:
 For each task's scenarios: `python3 tools/scenarios.py skeleton TASK.md --lang python|js`, fill the tests, then
 `python3 tools/scenarios.py check TASK.md --tests <files> --junit <report>`.
 
+## Scenarios with a fixed vocabulary
+
+Write a task's scenarios with known steps only (`python3 tools/vocab.py check TASK.md --vocab <files>`); a new phrase
+goes into the vocabulary file first. Headings are `### <ID> <title>` (story id, or `US-new`; `### Scenario: <title>`
+also works). Implement a step by picking the test block with the same words (`functional/blocks/vocabulary.json`), or
+register it once per level in the project's `Registry` from primitives (recipe `scenario-steps`, functional/README.md).
+Never edit `functional/blocks/python` or `functional/blocks/js`: change `functional/blocks/spec.json` and run
+`tools/blocks_from_app_blocks.py`.
+
 ## Boundaries
 
 Live journeys against a real model or a real service are opt-in and separate from the offline gate. No credentials,
