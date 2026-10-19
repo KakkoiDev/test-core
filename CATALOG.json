@@ -74,6 +74,46 @@
      "検査"
     ]
    }
+  },
+  {
+   "name": "vocab",
+   "file": "tools/vocab.py",
+   "purpose": "A task's scenarios use only the fixed step vocabulary; unknown steps get the nearest known ones.",
+   "keywords": {
+    "en": [
+     "vocabulary",
+     "step",
+     "unknown step",
+     "nearest step",
+     "gherkin"
+    ],
+    "ja": [
+     "語彙",
+     "ステップ",
+     "未知のステップ",
+     "近いステップ"
+    ]
+   }
+  },
+  {
+   "name": "blocks-from-app-blocks",
+   "file": "tools/blocks_from_app_blocks.py",
+   "purpose": "Test blocks (steps, states, self-test) generated from Pi Workbench's App Blocks; --check keeps them current.",
+   "keywords": {
+    "en": [
+     "test block",
+     "app block",
+     "generator",
+     "page object",
+     "ui library"
+    ],
+    "ja": [
+     "テストブロック",
+     "アプリブロック",
+     "生成",
+     "ページオブジェクト"
+    ]
+   }
   }
  ],
  "recipes": [
@@ -908,6 +948,88 @@
     "tools/flaky_lint.py"
    ],
    "test": "npx playwright test recipes/js/flaky-rules"
+  },
+  {
+   "name": "scenario-steps",
+   "language": "python",
+   "kind": "scenario",
+   "tool": "pytest + functional/",
+   "purpose": "The steps of a fixed vocabulary, one function per level: the same task file runs as unit, integration and e2e tests.",
+   "keywords": {
+    "en": [
+     "scenario steps",
+     "step vocabulary",
+     "given when then",
+     "gherkin",
+     "fixed vocabulary",
+     "test blocks",
+     "levels",
+     "functional"
+    ],
+    "ja": [
+     "シナリオのステップ",
+     "ステップ語彙",
+     "固定語彙",
+     "テストブロック",
+     "Given When Then"
+    ]
+   },
+   "card": "recipes/python/scenario-steps/README.md",
+   "files": [
+    "recipes/python/scenario-steps/task_steps.py",
+    "recipes/python/scenario-steps/test_task_steps_unit.py",
+    "recipes/python/scenario-steps/test_task_steps_integration.py",
+    "recipes/python/scenario-steps/test_task_steps_e2e.py"
+   ],
+   "needs": [
+    "recipes/python/conftest.py",
+    "recipes/python/live_server.py",
+    "recipes/shared/task-example.md",
+    "recipes/shared/task-example.vocab.json",
+    "tools/vocab.py"
+   ],
+   "test": "pytest recipes/python/scenario-steps"
+  },
+  {
+   "name": "scenario-steps",
+   "language": "js",
+   "kind": "scenario",
+   "tool": "Vitest + @playwright/test + functional/js",
+   "purpose": "The steps of a fixed vocabulary, one function per level: the same task file runs as unit, integration and e2e tests.",
+   "keywords": {
+    "en": [
+     "scenario steps",
+     "step vocabulary",
+     "given when then",
+     "gherkin",
+     "fixed vocabulary",
+     "test blocks",
+     "levels",
+     "functional"
+    ],
+    "ja": [
+     "シナリオのステップ",
+     "ステップ語彙",
+     "固定語彙",
+     "テストブロック",
+     "Given When Then"
+    ]
+   },
+   "card": "recipes/js/scenario-steps/README.md",
+   "files": [
+    "recipes/js/scenario-steps/task-steps.js",
+    "recipes/js/scenario-steps/task-steps-unit.test.js",
+    "recipes/js/scenario-steps/task-steps-integration.test.js",
+    "recipes/js/scenario-steps/task-steps.spec.js"
+   ],
+   "needs": [
+    "recipes/js/fixtures.js",
+    "playwright.config.js",
+    "recipes/shared/task-example.md",
+    "recipes/shared/task-example.vocab.json",
+    "tools/vocab.py"
+   ],
+   "test": "npx vitest run recipes/js/scenario-steps && npx playwright test recipes/js/scenario-steps"
   }
  ]
 }

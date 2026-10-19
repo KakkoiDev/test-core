@@ -7,13 +7,14 @@ from __future__ import annotations
 
 import secrets
 import sqlite3
-import unicodedata
 from pathlib import Path
 
 from fastapi import Cookie, FastAPI, HTTPException, Response
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
+
+from sample_app.tasks import clean_title, valid_title  # noqa: F401  (clean_title: recipe japanese-text)
 
 STATIC = Path(__file__).resolve().parent / "static"
 TEST_USERS = {"demo@example.com": "test-password"}
@@ -31,11 +32,6 @@ class NewTask(BaseModel):
 
 class TaskUpdate(BaseModel):
     done: bool
-
-
-def clean_title(title: str) -> str:
-    """Trim and compose (NFC) a title, so 'か' + U+3099 is stored as 'が' (recipe japanese-text)."""
-    return unicodedata.normalize("NFC", title).strip()
 
 
 def create_app(db_path: str | Path, users: dict[str, str] | None = None) -> FastAPI:
@@ -82,9 +78,11 @@ def create_app(db_path: str | Path, users: dict[str, str] | None = None) -> Fast
 
     @app.post("/api/tasks", status_code=201)
     def add_task(body: NewTask, session: str | None = Cookie(None)):
-        email, title = owner(session), clean_title(body.title)
-        if not title or len(title) > 200:
-            return JSONResponse({"error": "A title has 1 to 200 characters."}, status_code=422)
+        email = owner(session)
+        try:
+            title = valid_title(body.title)
+        except ValueError as error:
+            return JSONResponse({"error": str(error)}, status_code=422)
         cursor = db.execute("INSERT INTO tasks (owner, title) VALUES (?, ?)", (email, title))
         db.commit()
         return task_json(db.execute("SELECT * FROM tasks WHERE id = ?", (cursor.lastrowid,)).fetchone())
