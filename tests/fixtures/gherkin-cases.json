@@ -1,0 +1,158 @@
+{
+ "note": "Shared by tests/test_functional_gherkin.py and tests/js/functional.test.js: both languages give the same answers.",
+ "patterns": [
+  "Given I am signed in with an empty list",
+  "Given I am signed in with the task {title}",
+  "When I add the task {title}",
+  "When I add a task with an empty title",
+  "When I delete {title}",
+  "Then I see {title} in the list",
+  "Then the count says {text}",
+  "Then the list is empty",
+  "Then the list is still empty",
+  "Then the table shows {n} rows",
+  "When I sort by {column}"
+ ],
+ "nearest": [
+  {
+   "step": "When I add task Buy milk",
+   "nearest": [
+    "When I add the task {title}",
+    "When I add a task with an empty title"
+   ]
+  },
+  {
+   "step": "When I add the task",
+   "nearest": [
+    "When I add the task {title}",
+    "When I add a task with an empty title",
+    "Given I am signed in with the task {title}"
+   ]
+  },
+  {
+   "step": "Then the list should be empty",
+   "nearest": [
+    "Then the list is empty",
+    "Then the list is still empty",
+    "Then I see {title} in the list"
+   ]
+  },
+  {
+   "step": "Given I'm signed in",
+   "nearest": [
+    "Given I am signed in with the task {title}",
+    "Given I am signed in with an empty list"
+   ]
+  },
+  {
+   "step": "Then the table has 3 rows",
+   "nearest": [
+    "Then the table shows {n} rows",
+    "When I add the task {title}"
+   ]
+  },
+  {
+   "step": "When I sort the table by Word",
+   "nearest": [
+    "When I sort by {column}",
+    "Then the table shows {n} rows"
+   ]
+  },
+  {
+   "step": "When I remove \"Buy milk\"",
+   "nearest": [
+    "When I delete {title}",
+    "When I sort by {column}",
+    "When I add the task {title}"
+   ]
+  },
+  {
+   "step": "Then I see Buy milk",
+   "nearest": [
+    "Then I see {title} in the list",
+    "Then the list is still empty",
+    "Then the count says {text}"
+   ]
+  },
+  {
+   "step": "Given a habit Read with a 3-day streak",
+   "nearest": [
+    "Given I am signed in with an empty list",
+    "Given I am signed in with the task {title}"
+   ]
+  },
+  {
+   "step": "Then the count is \"1 task\"",
+   "nearest": [
+    "Then the count says {text}",
+    "Then the list is empty",
+    "Then I see {title} in the list"
+   ]
+  }
+ ],
+ "matches": [
+  {
+   "pattern": "Given a habit {name} with a {n}-day streak",
+   "step": "Given a habit Read with a 3-day streak",
+   "values": {
+    "name": "Read",
+    "n": 3
+   }
+  },
+  {
+   "pattern": "Given a habit {name} with a {n}-day streak",
+   "step": "Given a habit \"Read books\" with a 12-day streak",
+   "values": {
+    "name": "Read books",
+    "n": 12
+   }
+  },
+  {
+   "pattern": "Then I see {title} in the list",
+   "step": "Then I see 「牛乳を買う」 in the list",
+   "values": {
+    "title": "牛乳を買う"
+   }
+  },
+  {
+   "pattern": "Then I see {title} in the list",
+   "step": "Then I see “Buy milk” in the list",
+   "values": {
+    "title": "Buy milk"
+   }
+  },
+  {
+   "pattern": "Then the count says {text}",
+   "step": "then THE count says \"1 task\"",
+   "values": {
+    "text": "1 task"
+   }
+  },
+  {
+   "pattern": "Then the balance is {amount}",
+   "step": "Then the balance is -40",
+   "values": {
+    "amount": -40
+   }
+  },
+  {
+   "pattern": "Then the balance is {amount}",
+   "step": "Then the balance is \"40\"",
+   "values": {
+    "amount": "40"
+   }
+  },
+  {
+   "pattern": "Then the table shows {n} rows",
+   "step": "Then the table shows  3   rows",
+   "values": {
+    "n": 3
+   }
+  },
+  {
+   "pattern": "When I add the task {title}",
+   "step": "When I add a task",
+   "values": null
+  }
+ ]
+}

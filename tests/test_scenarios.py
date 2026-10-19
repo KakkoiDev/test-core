@@ -90,3 +90,66 @@ def test_a_task_without_scenarios_fails(tmp_path):
     task = tmp_path / "task.md"
     task.write_text("# Task\nNo scenarios yet.\n", encoding="utf-8")
     assert scenarios.main(["check", str(task), "--tests", str(TASK)]) == 1
+
+
+ID_TASK = textwrap.dedent("""
+    ## Scenarios
+
+    ### US-312 the counter shows one after I press Add
+    Given a counter at 0
+    When I press Add
+    Then it shows 1
+
+    ### US-new a story not written yet
+    Given a
+    When b
+    Then c
+
+    ### Scenario: The old form
+    - Given x
+    - When y
+    - Then z
+
+    ## Notes
+    ### Not a scenario
+    Given nothing
+""")
+
+
+def test_headings_with_a_story_id_and_the_old_form(tmp_path):
+    parsed = scenarios.parse(ID_TASK)
+    assert [(s.id, s.title, s.name) for s in parsed] == [
+        ("US-312", "the counter shows one after I press Add", "US-312 the counter shows one after I press Add"),
+        ("US-new", "a story not written yet", "US-new a story not written yet"),
+        (None, "The old form", "The old form"),
+    ]
+
+
+def test_a_story_a_titled_test_or_a_python_name_implements_a_scenario(tmp_path):
+    task = tmp_path / "task.md"
+    task.write_text(ID_TASK, encoding="utf-8")
+    js = tmp_path / "stories.cjs"
+    js.write_text("story('US-312', 'the counter shows one after I press Add', async () => {});\n"
+                  "test('US-new a story not written yet', async () => {});\n", encoding="utf-8")
+    py = tmp_path / "test_old.py"
+    py.write_text("def test_the_old_form():\n    pass\n", encoding="utf-8")
+    rows, ok = scenarios.check(task, [js, py], [])
+    assert ok, rows
+    assert [r["scenario"] for r in rows][0] == "US-312 the counter shows one after I press Add"
+
+
+def test_a_file_running_the_task_through_functional_implements_all_its_scenarios(tmp_path):
+    task = tmp_path / "task-12.md"
+    task.write_text(ID_TASK, encoding="utf-8")
+    runner = tmp_path / "test_task_12.py"
+    runner.write_text('globals().update(scenario_tests("tasks/task-12.md", level="e2e", registry=steps))\n', encoding="utf-8")
+    other = tmp_path / "test_other.py"
+    other.write_text('globals().update(scenario_tests("tasks/task-13.md", level="e2e", registry=steps))\n', encoding="utf-8")
+    assert scenarios.check(task, [runner], [])[1]
+    assert not scenarios.check(task, [other], [])[1]
+    report = tmp_path / "junit.xml"
+    report.write_text('<testsuite><testcase name="test_us_312_the_counter_shows_one_after_i_press_add[chromium]"/>'
+                      '<testcase name="US-new a story not written yet"/>'
+                      '<testcase name="test_the_old_form"><failure/></testcase></testsuite>', encoding="utf-8")
+    rows, ok = scenarios.check(task, [runner], [report])
+    assert [r["status"] for r in rows] == ["passed", "passed", "failed"] and not ok
