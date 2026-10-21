@@ -23,6 +23,7 @@ Privacy defaults deliberately trade replay fidelity for safety:
 
 - Never retain raw typed text, even in memory for later export. Input is a redaction marker and Unicode character count.
 - Skip password/token/OTP fields and descendants marked `data-secret` or `data-private`.
+- Focus/blur transitions and clicks on non-interactive surfaces (including canvas) use the same private-target exclusions. Navigation-key releases are observed from actual keyup events, not invented at keydown.
 - Selectors contain structural tag/nth-of-type paths only, never accessible names, IDs, data values or visible DOM text.
 - No printable-key shortcuts, error messages, console arguments, URL queries, fragments or route text are captured.
 - Python normalization accepts loopback navigation only and reduces it to its origin. It drops unknown fields and step

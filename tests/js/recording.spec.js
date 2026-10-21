@@ -67,3 +67,35 @@ test('slow delivery keeps only the bounded recent steps and disabling drops pend
   });
   expect(await page.evaluate(() => window.batches.length)).toBe(2);
 });
+
+
+test('focus transitions, canvas clicks and real key releases are captured without secret targets', async ({ page }) => {
+  await page.setContent('<label>Note<input></label><label>Password<input type="password"></label><canvas width="100" height="100"></canvas><button>Save</button>');
+  await page.evaluate(async code => {
+    const module = await import(URL.createObjectURL(new Blob([code], { type: 'text/javascript' })));
+    window.lines = [];
+    window.recorder = module.installRecorder({ post: async steps => window.lines.push(...steps) });
+  }, source);
+  await page.getByLabel('Note', { exact: true }).focus();
+  await page.keyboard.down('Tab');
+  let lines = await page.evaluate(async () => { await window.recorder.flush(); return window.lines; });
+  expect(lines.filter(step => step.type === 'focus')).toHaveLength(1);
+  expect(lines.filter(step => step.type === 'blur')).toHaveLength(1);
+  expect(lines.some(step => step.type === 'keyDown' && step.key === 'Tab')).toBe(true);
+  expect(lines.some(step => step.type === 'keyUp')).toBe(false);
+  await page.keyboard.up('Tab'); // secret target: no release is captured from it
+  await page.getByRole('button', { name: 'Save', exact: true }).focus();
+  await page.keyboard.down('ArrowRight');
+  await page.keyboard.up('ArrowRight');
+  await page.locator('canvas').click();
+  lines = await page.evaluate(async () => { await window.recorder.flush(); return window.lines; });
+  expect(lines.some(step => step.type === 'click' && step.selectors[0][0].includes('canvas'))).toBe(true);
+  expect(lines.filter(step => step.type === 'focus')).toHaveLength(2);
+  expect(lines.filter(step => step.type === 'keyUp' && step.key === 'ArrowRight')).toHaveLength(1);
+  expect(JSON.stringify(lines)).not.toMatch(/password|Note|Save|value/);
+  await page.evaluate(() => window.recorder.setEnabled(false));
+  const count = lines.length;
+  await page.getByLabel('Note', { exact: true }).focus();
+  expect(await page.evaluate(() => window.lines.length)).toBe(count);
+  await page.evaluate(() => window.recorder.stop());
+});

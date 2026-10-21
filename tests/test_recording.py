@@ -61,3 +61,20 @@ class RecordingTest(unittest.TestCase):
         flow = clean_flow({'steps': [{'type': 'click', 'selectors': [['button:nth-of-type(1)']]}] * 20}, max_steps=5)
         self.assertEqual(len(flow['steps']), 5)
         self.assertEqual(clean_flow(flow), flow)
+
+
+class FocusRecordingTest(unittest.TestCase):
+    def test_focus_and_blur_keep_only_structural_targets(self):
+        flow = clean_flow({'steps': [
+            {'type': kind, 'selectors': [['#secret'], ['input:nth-of-type(1)']], 'value': 'private', 'relatedTarget': 'secret'}
+            for kind in ('focus', 'blur')
+        ]})
+        self.assertEqual(flow['steps'], [
+            {'type': kind, 'selectors': [['input:nth-of-type(1)']]} for kind in ('focus', 'blur')
+        ])
+        for target in ('python', 'javascript'):
+            source = convert(flow, target=target)
+            self.assertIn('.focus()', source)
+            self.assertIn('.blur()', source)
+            self.assertIn('Add the expected outcome', source)
+            self.assertNotIn('private', source)
