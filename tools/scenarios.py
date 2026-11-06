@@ -125,13 +125,14 @@ def implemented(scenario: Scenario, names: set[str]) -> bool:
 
 
 def junit_results(paths: list[Path]) -> dict[str, bool]:
-    """Test name -> passed, from JUnit XML reports (pytest --junitxml, Playwright's junit reporter)."""
+    """Test name -> passed, from JUnit XML reports (pytest --junitxml, Playwright's and Vitest's junit reporters)."""
     results: dict[str, bool] = {}
     for path in paths:
         for case in ET.parse(path).getroot().iter("testcase"):
             name = re.sub(r"\[[^\]]*\]$", "", case.get("name", ""))  # test_x[chromium] -> test_x
             passed = not any(child.tag in ("failure", "error", "skipped") for child in case)
-            for key in {name, name.split(" › ")[-1]}:
+            # Nested titles: Playwright joins them with " › ", Vitest with " > ".
+            for key in {name, name.split(" › ")[-1], name.split(" > ")[-1]}:
                 results[key] = results.get(key, True) and passed
     return results
 
