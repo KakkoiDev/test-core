@@ -131,6 +131,14 @@ downloaded. Without it, `npx playwright install chromium` provides one (CI does 
 Tests are offline: the repository's `conftest.py` fails any Python connection to another machine, and the browser
 fixtures abort any request that leaves 127.0.0.1.
 
+## Benchmark runner
+
+[`bench/`](bench/README.md) runs a benchmark plan against a frozen revision and keeps every report. It provides
+checkpoints, resume, a single-runner lock, frozen-file hashes, bounded and exclusive concurrency, a secret scan, and
+three gates: a perfect-round streak with a regression round, a win rate with a Wilson interval, or all tasks passing.
+It has no dependencies and contains no cases: the host project supplies the tasks and their assertions. The adopt kit
+includes and hashes it.
+
 ## Privacy-first action recording (initial primitives)
 
 [`recording/`](recording/README.md) provides a dependency-free in-page recorder, a Python normalization boundary and
