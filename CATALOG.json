@@ -1101,6 +1101,83 @@
     "recipes/js/data-builders/builders.js"
    ],
    "test": "npx playwright test recipes/js/fullscreen-view"
+  },
+  {
+   "name": "pwa-offline",
+   "language": "python",
+   "kind": "e2e",
+   "tool": "pytest-playwright",
+   "purpose": "Check an installable app: its service worker takes control of its own scope, what it caches, an offline reload served by the worker, and full Chromium's installability verdict.",
+   "keywords": {
+    "en": [
+     "pwa",
+     "installable",
+     "install",
+     "service worker",
+     "offline reload",
+     "cache storage",
+     "manifest",
+     "home screen"
+    ],
+    "ja": [
+     "PWA",
+     "インストール",
+     "サービスワーカー",
+     "オフライン再読み込み",
+     "キャッシュ",
+     "マニフェスト",
+     "ホーム画面"
+    ]
+   },
+   "card": "recipes/python/pwa-offline/README.md",
+   "files": [
+    "recipes/python/pwa-offline/test_pwa_offline.py"
+   ],
+   "needs": [
+    "recipes/python/conftest.py",
+    "recipes/python/live_server.py",
+    "pwa/pwa.py"
+   ],
+   "test": "pytest recipes/python/pwa-offline"
+  },
+  {
+   "name": "pwa-offline",
+   "language": "js",
+   "kind": "e2e",
+   "tool": "@playwright/test",
+   "purpose": "Check an installable app: its service worker takes control of its own scope, what it caches, an offline reload served by the worker, and full Chromium's installability verdict.",
+   "keywords": {
+    "en": [
+     "pwa",
+     "installable",
+     "install",
+     "service worker",
+     "offline reload",
+     "cache storage",
+     "manifest",
+     "home screen"
+    ],
+    "ja": [
+     "PWA",
+     "インストール",
+     "サービスワーカー",
+     "オフライン再読み込み",
+     "キャッシュ",
+     "マニフェスト",
+     "ホーム画面"
+    ]
+   },
+   "card": "recipes/js/pwa-offline/README.md",
+   "files": [
+    "recipes/js/pwa-offline/pwa-offline.spec.js"
+   ],
+   "needs": [
+    "recipes/js/fixtures.js",
+    "playwright.config.js",
+    "recipes/js/data-builders/builders.js",
+    "pwa/pwa.mjs"
+   ],
+   "test": "npx playwright test recipes/js/pwa-offline"
   }
  ]
 }

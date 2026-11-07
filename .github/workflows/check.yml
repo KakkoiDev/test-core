@@ -37,7 +37,7 @@ jobs:
       - run: python tools/flaky_lint.py recipes sample_app functional tests/functional tests/js
       - name: The E2E rule on the sample app
         run: >-
-          python tools/e2e_coverage.py --pages sample_app/static/index.html
+          python tools/e2e_coverage.py --pages sample_app/static/index.html sample_app/static/pwa/index.html
           --messages 'sample_app/static/messages/*.json'
           --tests 'recipes/python/**/*.py' 'recipes/js/**/*.spec.js' recipes/js/e2e-journey/tasks-page.js
   javascript:

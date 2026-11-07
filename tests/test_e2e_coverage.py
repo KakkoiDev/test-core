@@ -162,14 +162,14 @@ def test_messages_give_every_language_name(tmp_path):
 
 def test_the_repository_follows_the_e2e_rule(capsys):
     code = e2e_coverage.main([
-        "--pages", str(ROOT / "sample_app/static/index.html"),
+        "--pages", str(ROOT / "sample_app/static/index.html"), str(ROOT / "sample_app/static/pwa/index.html"),
         "--messages", str(ROOT / "sample_app/static/messages/en.json"), str(ROOT / "sample_app/static/messages/ja.json"),
         "--tests", str(ROOT / "recipes/python/**/*.py"), str(ROOT / "recipes/js/**/*.spec.js"),
         str(ROOT / "recipes/js/e2e-journey/tasks-page.js"), "--json"])
 
     report = json.loads(capsys.readouterr().out)
     assert code == 0, report
-    assert len(report["controls"]) == 11  # with Full screen and Exit full screen
+    assert len(report["controls"]) == 12  # with Full screen, Exit full screen and the Tally PWA's Add one
 
 
 def test_nothing_to_check_is_not_a_pass(tmp_path):
