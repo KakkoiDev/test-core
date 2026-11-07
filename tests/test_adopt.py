@@ -106,3 +106,16 @@ def test_recording_primitives_are_pinned_and_work_after_adoption(target):
     assert py.returncode == 0, py.stderr
     assert py.stdout.strip() == 'Recorded flow'
     assert adopt.verify(base) == []
+
+
+def test_the_benchmark_runner_is_pinned_and_runs_after_adoption(target, tmp_path):
+    base = target / 'test-core'
+    assert (base / 'bench/bench.mjs').is_file() and (base / 'bench/README.md').is_file()
+    assert 'bench/bench.mjs' in json.loads((base / 'MANIFEST.json').read_text())['files']
+    script = ("import { runBench } from './test-core/bench/bench.mjs';"
+              f"const r = await runBench({{ dir: {json.dumps(str(tmp_path / 'report'))}, revision: 'r1',"
+              " tasks: [{ id: 'one' }], run: async () => ({ ok: true }) }); console.log(r.state);")
+    node = run('node', '--input-type=module', '-e', script, cwd=target)
+    assert node.returncode == 0, node.stderr
+    assert node.stdout.strip() == 'complete'
+    assert adopt.verify(base) == []

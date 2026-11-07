@@ -86,6 +86,20 @@ def test_pytest_junit_names_with_browser_suffix_count(tmp_path):
     assert ok, rows
 
 
+def test_vitest_junit_names_inside_a_describe_block_count(tmp_path):
+    spec = tmp_path / "task.test.js"
+    spec.write_text("describe('tasks', () => {\n  test('Add a task', () => {});\n  test('Delete a task', () => {});\n"
+                    "  test('An empty title is not added', () => {});\n});\n", encoding="utf-8")
+    report = tmp_path / "junit.xml"
+    report.write_text('<testsuites><testsuite>' + "".join(
+        f'<testcase classname="task.test.js" name="tasks &gt; {n}"/>' for n in
+        ["Add a task", "Delete a task", "An empty title is not added"]) + '</testsuite></testsuites>')
+
+    rows, ok = scenarios.check(TASK, [spec], [report])
+
+    assert ok, rows
+
+
 def test_a_task_without_scenarios_fails(tmp_path):
     task = tmp_path / "task.md"
     task.write_text("# Task\nNo scenarios yet.\n", encoding="utf-8")
