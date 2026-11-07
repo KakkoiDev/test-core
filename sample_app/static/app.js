@@ -108,6 +108,33 @@ $('#language').addEventListener('click', () => {
   render();
 });
 
+// Full screen: the Fullscreen API where it exists, otherwise the board fills the window. The same element is
+// shown either way (never a copy), so what is typed in it survives, and focus returns to the opening button.
+const board = $('#board');
+let opener = null;
+function showView(view) {
+  board.dataset.view = view;
+  document.body.classList.toggle('full-window-open', view === 'full-window');
+  $('#fullscreen').hidden = view !== 'inline';
+  $('#exit-fullscreen').hidden = view === 'inline';
+  if (view === 'inline') { opener?.focus(); opener = null; } else $('#exit-fullscreen').focus();
+}
+$('#fullscreen').addEventListener('click', async () => {
+  opener = document.activeElement;
+  if (document.fullscreenEnabled && board.requestFullscreen) {
+    try { await board.requestFullscreen(); return; } catch { /* refused: fall back to the window */ }
+  }
+  showView('full-window');
+});
+$('#exit-fullscreen').addEventListener('click', () => {
+  if (document.fullscreenElement) document.exitFullscreen();
+  else showView('inline');
+});
+document.addEventListener('fullscreenchange', () => showView(document.fullscreenElement === board ? 'fullscreen' : 'inline'));
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape' && board.dataset.view === 'full-window') showView('inline');
+});
+
 function showConnection() {
   $('#offline').hidden = navigator.onLine;
   $('#add').disabled = !navigator.onLine;

@@ -14,5 +14,7 @@
   "tipUnavailable": "ヒントを読み込めません。",
   "offline": "オフラインです。変更には接続が必要です。",
   "count_one": "1 件のタスク",
-  "count": "{n} 件のタスク"
+  "count": "{n} 件のタスク",
+  "fullScreen": "全画面",
+  "exitFullScreen": "全画面を終了"
 }

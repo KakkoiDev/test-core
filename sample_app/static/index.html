@@ -28,13 +28,19 @@
 
     <section id="tasks" hidden>
       <p><span id="who"></span> <button type="button" id="sign-out" data-text="signOut">Sign out</button></p>
-      <form id="new-task-form" method="post">
-        <label for="title" data-text="newTask">New task</label>
-        <input id="title" name="title" required maxlength="200">
-        <button type="submit" id="add" data-text="add">Add</button>
-      </form>
-      <p id="count" role="status">0 tasks</p>
-      <ul id="task-list" aria-label="Tasks"></ul>
+      <div id="board" data-view="inline">
+        <p class="board-tools">
+          <button type="button" id="fullscreen" data-text="fullScreen">Full screen</button>
+          <button type="button" id="exit-fullscreen" hidden data-text="exitFullScreen">Exit full screen</button>
+        </p>
+        <form id="new-task-form" method="post">
+          <label for="title" data-text="newTask">New task</label>
+          <input id="title" name="title" required maxlength="200">
+          <button type="submit" id="add" data-text="add">Add</button>
+        </form>
+        <p id="count" role="status">0 tasks</p>
+        <ul id="task-list" aria-label="Tasks"></ul>
+      </div>
       <aside aria-labelledby="tip-heading">
         <h2 id="tip-heading" data-text="tip">Tip</h2>
         <p id="tip">…</p>

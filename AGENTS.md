@@ -6,7 +6,7 @@ recipes still apply to the shape of each test.
 ## Pick, copy, fill
 
 1. Name the kind of test you need (unit, integration, e2e journey, fixtures, builder, network stub, offline or phone,
-   Japanese text, accessibility smoke, scenario, flaky rules). Find it in `CATALOG.json` or with
+   full screen, Japanese text, accessibility smoke, scenario, flaky rules). Find it in `CATALOG.json` or with
    `python3 tools/catalog.py find <words>`.
 2. Read only that recipe's card. Copy its file, never retype it. Rename the names, keep the structure.
 3. Copy with `python3 tools/catalog.py copy <name> --language python|js --out <folder>` (it never overwrites), or

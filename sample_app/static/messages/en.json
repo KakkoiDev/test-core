@@ -14,5 +14,7 @@
   "tipUnavailable": "Tip unavailable.",
   "offline": "You’re offline. Changes need a connection.",
   "count_one": "1 task",
-  "count": "{n} tasks"
+  "count": "{n} tasks",
+  "fullScreen": "Full screen",
+  "exitFullScreen": "Exit full screen"
 }
