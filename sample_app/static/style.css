@@ -8,4 +8,13 @@ input, button { font: inherit; padding: 0.5rem 0.75rem; min-height: 2.75rem; max
 ul { list-style: none; padding: 0; }
 li { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; padding-block: 0.25rem; }
 li label { flex: 1; overflow-wrap: anywhere; }
+.board-tools { display: flex; justify-content: flex-end; gap: 0.5rem; margin: 0; }
+#board:fullscreen { background: Canvas; overflow: auto; padding: 1rem; }
+/* The fallback where the Fullscreen API is missing (iPhone Safari): fill the window, keep clear of the notch. */
+#board[data-view="full-window"] {
+  position: fixed; inset: 0; z-index: 10; overflow: auto; background: Canvas;
+  padding: max(1rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right))
+    max(1rem, env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left));
+}
+body.full-window-open { overflow: hidden; }
 @media (min-width: 40rem) { #new-task-form { grid-template-columns: 1fr auto; } #new-task-form label { grid-column: 1 / -1; } }

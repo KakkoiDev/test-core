@@ -1030,6 +1030,77 @@
     "tools/vocab.py"
    ],
    "test": "npx vitest run recipes/js/scenario-steps && npx playwright test recipes/js/scenario-steps"
+  },
+  {
+   "name": "fullscreen-view",
+   "language": "python",
+   "kind": "e2e",
+   "tool": "pytest-playwright",
+   "purpose": "Check that part of the page goes full screen and back unchanged, with the Fullscreen API and without it (phone fallback).",
+   "keywords": {
+    "en": [
+     "fullscreen",
+     "full screen",
+     "full window",
+     "focus mode",
+     "exit",
+     "focus restore",
+     "iframe state"
+    ],
+    "ja": [
+     "全画面",
+     "フルスクリーン",
+     "全画面を終了",
+     "フォーカス",
+     "状態を保つ"
+    ]
+   },
+   "card": "recipes/python/fullscreen-view/README.md",
+   "files": [
+    "recipes/python/fullscreen-view/test_fullscreen.py",
+    "recipes/python/fullscreen-view/test_full_window.py"
+   ],
+   "needs": [
+    "recipes/python/conftest.py",
+    "recipes/python/live_server.py"
+   ],
+   "test": "pytest recipes/python/fullscreen-view"
+  },
+  {
+   "name": "fullscreen-view",
+   "language": "js",
+   "kind": "e2e",
+   "tool": "@playwright/test",
+   "purpose": "Check that part of the page goes full screen and back unchanged, with the Fullscreen API and without it (phone fallback).",
+   "keywords": {
+    "en": [
+     "fullscreen",
+     "full screen",
+     "full window",
+     "focus mode",
+     "exit",
+     "focus restore",
+     "iframe state"
+    ],
+    "ja": [
+     "全画面",
+     "フルスクリーン",
+     "全画面を終了",
+     "フォーカス",
+     "状態を保つ"
+    ]
+   },
+   "card": "recipes/js/fullscreen-view/README.md",
+   "files": [
+    "recipes/js/fullscreen-view/fullscreen.spec.js",
+    "recipes/js/fullscreen-view/full-window.spec.js"
+   ],
+   "needs": [
+    "recipes/js/fixtures.js",
+    "playwright.config.js",
+    "recipes/js/data-builders/builders.js"
+   ],
+   "test": "npx playwright test recipes/js/fullscreen-view"
   }
  ]
 }

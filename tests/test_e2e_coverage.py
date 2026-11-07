@@ -169,7 +169,7 @@ def test_the_repository_follows_the_e2e_rule(capsys):
 
     report = json.loads(capsys.readouterr().out)
     assert code == 0, report
-    assert len(report["controls"]) == 9
+    assert len(report["controls"]) == 11  # with Full screen and Exit full screen
 
 
 def test_nothing_to_check_is_not_a_pass(tmp_path):

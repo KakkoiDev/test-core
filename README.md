@@ -69,6 +69,7 @@ purpose, English and Japanese keywords, files, the command that runs them).
 | `data-builders` | fixtures | Test records from builders: valid unique defaults plus overrides |
 | `network-stub` | e2e + unit | No network: `page.route` in the browser, `httpx.MockTransport` / stub `fetch` in code |
 | `offline-phone` | e2e | Offline banner and disabled actions; phone viewport with touch |
+| `fullscreen-view` | e2e | Full screen and back with state and focus kept; the full-window fallback without the Fullscreen API |
 | `japanese-text` | e2e + unit | Japanese names, IME-style input, NFC normalization, collation |
 | `a11y-smoke` | e2e | Names, labels, alt, `lang`, one `h1`, tab order, duplicate ids; keyboard reach |
 | `scenario-e2e` | e2e | Given/When/Then scenarios of a task, one e2e test each, named after the scenario |
