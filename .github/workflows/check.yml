@@ -56,7 +56,7 @@ jobs:
       - name: Unit and integration recipes, functional/js and the benchmark runner (Vitest)
         run: npx vitest run --reporter=default --reporter=junit --outputFile.junit=.test-output/vitest-junit.xml
       - name: Each benchmark runner scenario has a test that ran and passed
-        run: python3 tools/scenarios.py check bench/SCENARIOS.md --tests tests/js/bench.test.js --junit .test-output/vitest-junit.xml
+        run: python3 tools/scenarios.py check bench/SCENARIOS.md --tests tests/js/bench.test.js tests/js/bench-toolkit.test.js --junit .test-output/vitest-junit.xml
       - name: No-dependency recipe (node --test)
         run: node --test recipes/js/unit-nodeps/slug.nodetest.js
       - name: End-to-end recipes, primitives and test-block self-tests (@playwright/test)

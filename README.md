@@ -137,6 +137,8 @@ fixtures abort any request that leaves 127.0.0.1.
 [`bench/`](bench/README.md) runs a benchmark plan against a frozen revision and keeps every report. It provides
 checkpoints, resume, a single-runner lock, frozen-file hashes, bounded and exclusive concurrency, a secret scan, and
 three gates: a perfect-round streak with a regression round, a win rate with a Wilson interval, or all tasks passing.
+Around it: seeded synthetic inputs, freezing a revision into its own folder, launching a run so it outlives its launcher
+(launchd on macOS), and per-subject reports and a watcher, with one command line (`bench/cli.mjs`) and a written method.
 It has no dependencies and contains no cases: the host project supplies the tasks and their assertions. The adopt kit
 includes and hashes it.
 
