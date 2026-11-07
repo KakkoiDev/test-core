@@ -11,7 +11,8 @@ import { validTitle } from './static/tasks.js';
 const STATIC = fileURLToPath(new URL('./static/', import.meta.url));
 export const TEST_USERS = { 'demo@example.com': 'test-password' };
 export const TIP = 'Write the test first, watch it fail, then make it pass.';
-const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json' };
+const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json',
+  '.png': 'image/png', '.webmanifest': 'application/manifest+json' };
 
 export { cleanTitle } from './static/tasks.js'; // recipe japanese-text
 
