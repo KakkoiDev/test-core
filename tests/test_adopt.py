@@ -119,3 +119,17 @@ def test_the_benchmark_runner_is_pinned_and_runs_after_adoption(target, tmp_path
     assert node.returncode == 0, node.stderr
     assert node.stdout.strip() == 'complete'
     assert adopt.verify(base) == []
+
+
+def test_the_pwa_checks_are_pinned_and_import_after_adoption(target):
+    base = target / 'test-core'
+    files = json.loads((base / 'MANIFEST.json').read_text())['files']
+    assert {'pwa/pwa.mjs', 'pwa/pwa.py', 'pwa/README.md'} <= set(files)
+    node = run('node', '--input-type=module', '-e',
+               "const m = await import('./test-core/pwa/pwa.mjs'); console.log(Object.keys(m).sort().join(' '));", cwd=target)
+    assert node.returncode == 0, node.stderr
+    assert node.stdout.strip() == 'cacheContents installability reloadOffline serviceWorkerControl'
+    py = run(sys.executable, '-c', 'from pwa.pwa import installability, reload_offline; print("ok")', cwd=target,
+             env={'PYTHONPATH': 'test-core'})
+    assert py.returncode == 0, py.stderr
+    assert adopt.verify(base) == []
