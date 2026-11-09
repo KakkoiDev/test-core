@@ -6,7 +6,7 @@ env:
   PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1' # installs never fetch a browser; the step below is the only download
 jobs:
   python:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -41,7 +41,7 @@ jobs:
           --messages 'sample_app/static/messages/*.json'
           --tests 'recipes/python/**/*.py' 'recipes/js/**/*.spec.js' recipes/js/e2e-journey/tasks-page.js
   javascript:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
