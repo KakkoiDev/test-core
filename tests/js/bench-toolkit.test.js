@@ -189,4 +189,25 @@ describe('bench toolkit', () => {
     const [code] = await once(child, 'close');
     expect(code).not.toBe(0);
   });
+
+  test.skipIf(process.platform !== 'darwin')('on macOS a label is launched again after its job finished, never while it runs', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'bench-relaunch-'));
+    const label = `test-core.bench.relaunch.${process.pid}`;
+    const first = join(root, 'first');
+    const second = join(root, 'second');
+    const busy = join(root, 'busy');
+    await cli('launch', '--folder', first, '--label', label, '--cwd', root, '--', 'node', consumer(root), first);
+    await cli('watch', first, '--poll', '0.1');
+
+    const again = await cli('launch', '--folder', second, '--label', label, '--cwd', root, '--', 'node', consumer(root, { wait: 'alpha-1' }), second);
+    await waitForFolder(second, () => existsSync(join(second, 'run.log')) && readFileSync(join(second, 'run.log'), 'utf8').includes('waiting alpha-1'));
+    const whileRunning = await cli('launch', '--folder', busy, '--label', label, '--cwd', root, '--', 'node', consumer(root), busy);
+    await cli('stop', second);
+    const watched = await cli('watch', second, '--poll', '0.1');
+
+    expect(again.code).toBe(0);
+    expect(whileRunning.code).toBe(2);
+    expect(whileRunning.stderr).toContain(`${label} is still running`);
+    expect(watched.stdout).toContain('interrupted');
+  });
 });
