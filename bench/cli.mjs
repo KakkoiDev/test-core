@@ -10,6 +10,8 @@ import { freezeRevision } from './freeze.mjs';
 import { launchDetached, stopDetached } from './launch.mjs';
 import { formatSummary, summarize, waitForRun } from './report.mjs';
 
+const BOOLEAN = ['json'];
+
 function options(args, repeatable = []) {
   const found = { _: [] };
   for (let i = 0; i < args.length; i++) {
@@ -17,7 +19,7 @@ function options(args, repeatable = []) {
     if (arg === '--') { found['--'] = args.slice(i + 1); break; }
     if (!arg.startsWith('--')) { found._.push(arg); continue; }
     const name = arg.slice(2);
-    const value = args[i + 1] !== undefined && !args[i + 1].startsWith('--') ? args[++i] : true;
+    const value = !BOOLEAN.includes(name) && args[i + 1] !== undefined && !args[i + 1].startsWith('--') ? args[++i] : true;
     if (repeatable.includes(name)) (found[name] ??= []).push(value);
     else found[name] = value;
   }

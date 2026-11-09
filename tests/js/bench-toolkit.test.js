@@ -96,6 +96,20 @@ describe('bench toolkit', () => {
       failures: [{ task: 'beta-2', case: 'second', detail: 'synthetic failure in beta-2' }] });
   });
 
+  test('a flag before the run folder does not take the folder as its value', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'bench-flags-'));
+    const dir = join(root, 'run');
+    await run(process.execPath, [consumer(root), dir]);
+
+    const reported = await cli('report', '--json', dir);
+    const watched = await cli('watch', '--json', '--poll', '0.1', dir);
+
+    expect(reported.code).toBe(0);
+    expect(JSON.parse(reported.stdout)).toMatchObject({ state: 'complete', completed: 6 });
+    expect(watched.code).toBe(0);
+    expect(JSON.parse(watched.stdout)).toMatchObject({ state: 'complete', exitCode: 0 });
+  });
+
   test('freezing copies one committed revision and refuses to overwrite', async () => {
     const root = mkdtempSync(join(tmpdir(), 'bench-freeze-'));
     const repo = join(root, 'repo');

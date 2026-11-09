@@ -73,3 +73,8 @@ Then the run finishes on its own, the watch command reports its final state and 
 Given a detached run whose task waits until it is stopped
 When the stop command targets it
 Then the run ends as interrupted and leaves no lock behind
+
+### Scenario: a flag before the run folder does not take the folder as its value
+Given a finished run folder
+When the report and watch commands get --json before the folder
+Then both read that folder and print its summary as JSON
