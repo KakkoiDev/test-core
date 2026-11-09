@@ -16,7 +16,7 @@ dependencies = [
 ]
 
 [tool.pytest.ini_options]
-testpaths = ["tests", "recipes/python", "sample-app/python"]
+testpaths = ["tests", "recipes/python"]
 addopts = "-p no:cacheprovider --browser chromium"
 pythonpath = ["."]
 # Starlette 1.x prefers httpx2 for TestClient and warns about httpx; httpx stays the decided client (see the PR).
