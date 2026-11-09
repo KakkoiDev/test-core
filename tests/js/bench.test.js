@@ -2,11 +2,13 @@
 // consumer program in a temporary folder, so locks, signals and resume cross a real process boundary.
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
-import { mkdtempSync, readFileSync, readdirSync, writeFileSync, existsSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, readdirSync, writeFileSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { createInterface } from 'node:readline';
 import { describe, expect, test } from 'vitest';
+import { processStart } from '../../bench/bench.mjs';
+import { readState } from '../../bench/report.mjs';
 
 const BENCH = resolve('bench/bench.mjs');
 
@@ -171,6 +173,31 @@ describe('bench runner', () => {
     expect(ran(second.lines)).toEqual([]);
     expect(later.code).toBe(0);
     expect(later.result.state).toBe('stable-and-regression-passed');
+  });
+
+  test('a lock or running state left by a process whose PID was reused is stale', async () => {
+    const root = workspace();
+    const dir = join(root, 'report');
+    await run(root, { dir, rounds: 1, subjects: ['alpha'] });
+    const finished = json(join(dir, 'state.json'));
+    const reused = { pid: process.pid, started: 'Thu Jan  1 00:00:00 1970' };
+    const live = { pid: process.pid, started: processStart(process.pid) };
+
+    writeFileSync(join(dir, 'state.json'), JSON.stringify({ ...finished, state: 'running', pid: reused.pid, pidStarted: reused.started }));
+    const staleState = await readState(dir);
+    writeFileSync(join(dir, 'state.json'), JSON.stringify({ ...finished, state: 'running', pid: live.pid, pidStarted: live.started }));
+    const liveState = await readState(dir);
+    const other = join(root, 'other');
+    mkdirSync(other);
+    writeFileSync(join(other, 'run.lock'), JSON.stringify(live));
+    const refused = await run(root, { dir: other, rounds: 1, subjects: ['alpha'] });
+    writeFileSync(join(other, 'run.lock'), JSON.stringify(reused));
+    const reclaimed = await run(root, { dir: other, rounds: 1, subjects: ['alpha'] });
+
+    expect(staleState.state).toBe('stale');
+    expect(liveState.state).toBe('running');
+    expect(refused.lines.join('\n')).toContain(`Run already active (PID ${process.pid})`);
+    expect(reclaimed.result.state).toBe('stable-and-regression-passed');
   });
 
   test('an interrupted run resumes from its checkpoints without repeating finished tasks', async () => {

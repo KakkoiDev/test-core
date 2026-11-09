@@ -33,10 +33,10 @@ process.exitCode = exitCode;
 | File | Contents |
 | --- | --- |
 | `manifest.json` | revision, plan hash, gate, frozen files with sha256, fingerprint, Node version, host `config` |
-| `state.json` | state, PID, `updatedAt` (refreshed at least every 15 s while running), completed / total, active tasks with start times, the gate's summary, any failure |
+| `state.json` | state, PID and its start time (`pidStarted`), `updatedAt` (refreshed at least every 15 s while running), completed / total, active tasks with start times, the gate's summary, any failure |
 | `tasks/<id>.json` | one checkpoint per finished task: the task, revision, fingerprint, start time, `seconds`, `ok`, `attempts` when it was retried, and the full result |
 | `tasks/<id>/` | the task's own folder for reports, logs and screenshots |
-| `run.lock` | the running process's PID; removed at the end, reclaimed only when that process no longer exists |
+| `run.lock` | the running process's PID and start time; removed at the end, reclaimed only when that process no longer exists or the PID now names a process with another start time (PID reuse, for example after a reboot) |
 
 Failed tasks are kept exactly like passing ones. Nothing is ever deleted.
 
@@ -93,7 +93,7 @@ free and have scenarios and tests.
 | `seeded.mjs` | `seeded(case, round, subject)` gives `pick`, `pickDistinct`, `int` and `next`. The same key always gives the same choices, so a failure reproduces exactly; different keys vary the wording and data, so no case is one memorised sentence. |
 | `freeze.mjs` | `freezeRevision({ repo, revision, into, copy, link })` writes one committed revision into its own folder with `git archive`, so uncommitted edits never leak in. Large folders such as `node_modules` are copied (APFS clones on macOS, instant). `FROZEN.json` names the revision. It refuses an existing folder or an unknown revision, and cleans up after a failure. |
 | `launch.mjs` | `launchDetached({ folder, label, argv, cwd, env })` starts the run so it outlives whatever started it: a launchd job on macOS (it survives the launching app quitting) or a detached process elsewhere. `stopDetached(folder)` sends SIGTERM, which the runner records as `interrupted`. On macOS, launching a label again removes that label's finished job first, and refuses while the job still runs. Put secrets in an env file read by the run (`node --env-file`), never in `env`, because launchd keeps `env` in a plist on disk. |
-| `report.mjs` | `summarize(dir)` gives the state, checks, rounds and, per subject, cases passed, median and slowest seconds and every failure with its detail. A task's result may list `cases: [{ id, status, seconds, detail }]`; otherwise the task counts as one case. `waitForRun(dir)` resolves when the run is final, or `stale` when its process died while it still said running. |
+| `report.mjs` | `summarize(dir)` gives the state, checks, rounds and, per subject, cases passed, median and slowest seconds and every failure with its detail. A task's result may list `cases: [{ id, status, seconds, detail }]`; otherwise the task counts as one case. `waitForRun(dir)` resolves when the run is final, or `stale` when its process died (or its PID now names another process) while it still said running. |
 | `cli.mjs` | One command line for all of the above (below). |
 
 ```sh

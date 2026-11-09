@@ -1,5 +1,6 @@
 // A frozen, resumable benchmark runner. No dependencies: Node.js 22.13+ built-ins only.
 // The host supplies the plan (tasks), the task body (run) and a gate that turns results into a verdict.
+import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { mkdir, open, readFile, readdir, rename, stat, unlink, writeFile } from 'node:fs/promises';
 import { join, relative } from 'node:path';
@@ -31,26 +32,42 @@ async function frozenFiles(freeze) {
   return files;
 }
 
+/** The process's start time as `ps` prints it, or undefined when the process is gone or `ps` is missing. */
+export function processStart(pid) {
+  try {
+    return execFileSync('ps', ['-o', 'lstart=', '-p', String(pid)], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim() || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** True when `pid` runs and, if `started` is known, is the same process that recorded it (not a reused PID). */
+export function sameProcess(pid, started) {
+  try {
+    process.kill(pid, 0);
+  } catch (error) {
+    if (error.code !== 'EPERM') return false;
+  }
+  if (!started) return true;
+  const now = processStart(pid);
+  return now === undefined || now === started;
+}
+
 /** Take the folder's lock, reclaiming it only when the recorded process no longer exists. */
 async function lock(dir) {
   const path = join(dir, 'run.lock');
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
       const handle = await open(path, 'wx');
-      await handle.writeFile(String(process.pid));
+      await handle.writeFile(JSON.stringify({ pid: process.pid, started: processStart(process.pid) }));
       await handle.close();
       return async () => { await unlink(path).catch(() => {}); };
     } catch (error) {
       if (error.code !== 'EEXIST') throw error;
-      const pid = Number(await readFile(path, 'utf8').catch(() => ''));
-      if (pid > 0 && pid !== process.pid) {
-        try {
-          process.kill(pid, 0);
-          throw new Error(`Run already active (PID ${pid})`);
-        } catch (probe) {
-          if (probe.code !== 'ESRCH') throw probe.code === 'EPERM' ? new Error(`Run already active (PID ${pid})`) : probe;
-        }
-      }
+      const text = await readFile(path, 'utf8').catch(() => '');
+      const held = (() => { try { return JSON.parse(text); } catch { return {}; } })();
+      const pid = Number(held?.pid ?? held);
+      if (pid > 0 && pid !== process.pid && sameProcess(pid, held?.started)) throw new Error(`Run already active (PID ${pid})`);
       await unlink(path).catch(() => {});
     }
   }
@@ -275,12 +292,13 @@ export async function runBench(options) {
   const controller = new AbortController();
   const active = new Map();
   const startedAt = new Date().toISOString();
+  const pidStarted = processStart(process.pid);
   let state = 'running';
   let failure;
   let verdict = gate.evaluate(records, tasks);
   let reserved = 0;
   const spent = () => [...records.values()].reduce((sum, record) => sum + (record.costUsd ?? 0), 0);
-  const save = () => atomic(statePath, { state, pid: process.pid, revision, startedAt, updatedAt: new Date().toISOString(),
+  const save = () => atomic(statePath, { state, pid: process.pid, ...(pidStarted ? { pidStarted } : {}), revision, startedAt, updatedAt: new Date().toISOString(),
     completed: records.size, total: tasks.length, active: [...active.values()], summary: verdict.summary,
     ...(budget ? { spentUsd: spent(), capUsd: budget.capUsd } : {}), ...(failure ? { failure } : {}) });
   const heartbeat = setInterval(() => { save().catch(() => {}); }, 15000);

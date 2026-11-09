@@ -24,6 +24,11 @@ Given a report folder locked by a running process
 When a second runner starts there, and later a runner starts after the locking process has exited
 Then the second runner refuses with the locking PID, and the later runner reclaims the stale lock and finishes
 
+### Scenario: a lock or running state left by a process whose PID was reused is stale
+Given a run lock and a running state that name a live PID with a start time that PID does not have
+When a runner starts in that folder and the state is read
+Then the runner reclaims the lock and finishes, the state reads as stale, and the same files with the true start time still count as active
+
 ### Scenario: an interrupted run resumes from its checkpoints without repeating finished tasks
 Given a run interrupted by SIGINT while a task is in progress
 When the run is resumed in the same folder
