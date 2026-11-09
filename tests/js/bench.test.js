@@ -31,7 +31,7 @@ try {
   const result = await runBench({
     dir: config.dir, revision: 'rev-test', resume: Boolean(config.resume), tasks,
     gate: config.rate ? rateGate({ threshold: 0.51 }) : config.flat ? undefined : streakGate({ required: config.rounds, regression: 1 }),
-    concurrency: config.concurrency ?? 1,
+    concurrency: config.concurrency ?? 1, timeoutMs: config.timeoutMs,
     exclusive: task => task.group,
     freeze: config.freeze, secrets: config.secrets, config: config.config,
     async run(task, { signal, taskDir }) {
@@ -265,6 +265,19 @@ describe('bench runner', () => {
     expect(unclear.code).toBe(1);
     expect(unclear.result.summary.interval[0]).toBeLessThan(0.51);
     expect(unclear.result.summary.interval[1]).toBeGreaterThan(0.51);
+  });
+
+  test('a task that runs past its time limit is recorded as a timeout and the run goes on', async () => {
+    const root = workspace();
+    const dir = join(root, 'report');
+
+    const { code, result, lines } = await run(root, { dir, flat: 3, block: ['t1'], timeoutMs: 1000 });
+
+    expect(code).toBe(1);
+    expect(result.state).toBe('needs-investigation');
+    expect(result.summary.failed).toEqual(['t1']);
+    expect(json(join(dir, 'tasks', 't1.json'))).toMatchObject({ ok: false, result: { ok: false, error: 'timeout' } });
+    expect(ran(lines)).toEqual(['t0', 't1', 't2']);
   });
 
   test('parallel tasks respect the limit and exclusive groups', async () => {

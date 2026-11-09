@@ -169,6 +169,7 @@ async function scan(dir, secrets) {
  *   freeze      { root, files } hashed into the manifest; a resume refuses if any changed
  *   concurrency how many tasks run at once (1)
  *   exclusive   task => key: at most one running task per key (e.g. one local model)
+ *   timeoutMs   a task still running after this many milliseconds is aborted and recorded as ok false, error 'timeout'
  *   secrets     literal values that must not appear in any file under `dir` when the run ends
  *   config      extra settings recorded in the manifest
  *   onEvent     ({ type, ... }) => void, for logs
@@ -176,7 +177,7 @@ async function scan(dir, secrets) {
  */
 export async function runBench(options) {
   const { dir, tasks, run, revision, resume = false, freeze, concurrency = 1, exclusive = () => undefined, secrets,
-    config = {}, onEvent = () => {} } = options;
+    config = {}, timeoutMs, onEvent = () => {} } = options;
   const gate = options.gate ?? allGate();
   if (!dir || !revision || typeof run !== 'function' || !Array.isArray(tasks) || !tasks.length)
     throw new Error('runBench needs dir, revision, run and a non-empty tasks list');
@@ -280,12 +281,20 @@ export async function runBench(options) {
       onEvent({ type: 'task-start', id: task.id });
       await save();
       let result;
+      const limit = new AbortController();
+      let timer;
+      const expired = new Promise(done => {
+        if (timeoutMs) timer = setTimeout(() => { limit.abort(new Error('timeout')); done(); }, timeoutMs);
+      });
       try {
-        result = await run(task, { signal: controller.signal, dir, taskDir });
+        const signal = AbortSignal.any([controller.signal, limit.signal]);
+        result = await Promise.race([run(task, { signal, dir, taskDir }), expired]);
       } catch (error) {
-        if (controller.signal.aborted) { active.delete(task.id); return; }
+        if (controller.signal.aborted) { clearTimeout(timer); active.delete(task.id); return; }
         result = { ok: false, error: String(error?.message ?? error).slice(0, 2000) };
       }
+      clearTimeout(timer);
+      if (limit.signal.aborted) result = { ok: false, error: 'timeout' };
       active.delete(task.id);
       if (controller.signal.aborted) return;
       const seconds = Math.round(Number(process.hrtime.bigint() - clock) / 1e6) / 1e3;

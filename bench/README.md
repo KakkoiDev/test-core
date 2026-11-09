@@ -64,6 +64,9 @@ Exit codes: 0 for `stable-and-regression-passed`, `complete` and `above-threshol
 - **Concurrency is bounded.** `concurrency` caps the tasks in flight. `exclusive(task)` returns a key, and at most one
   task per key runs at a time, for example one generation per local model.
 - **Tasks get the abort signal.** Pass it to child processes and requests so an interruption stops them.
+- **A hung task does not hang the run.** With `timeoutMs`, a task still running after that many milliseconds gets its
+  signal aborted and is recorded as `ok: false, error: 'timeout'`; the run goes on. A task that ignores the signal keeps
+  running in the background, so pass it on.
 
 The host owns everything else: what a case asserts, which models or engines run, and how to start and stop the app.
 Keep case counts honest in the host. Rich AI Chat, for example, compares each suite's case list with its expected count

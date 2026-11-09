@@ -54,6 +54,11 @@ Given a match plan of independent games with wins, losses and draws, and a thres
 When the runner finishes
 Then the summary has the score and its Wilson interval, and the state is above-threshold only when the lower bound clears the threshold
 
+### Scenario: a task that runs past its time limit is recorded as a timeout and the run goes on
+Given a plan of three tasks with a time limit, where the second task never finishes on its own
+When the runner finishes
+Then the second task's checkpoint says ok false with error timeout, the other tasks ran, and the state is needs-investigation
+
 ### Scenario: parallel tasks respect the limit and exclusive groups
 Given a plan of six tasks, a concurrency of three and two tasks sharing one exclusive group
 When the runner finishes
