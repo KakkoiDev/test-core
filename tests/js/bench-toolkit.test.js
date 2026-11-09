@@ -96,6 +96,39 @@ describe('bench toolkit', () => {
       failures: [{ task: 'beta-2', case: 'second', detail: 'synthetic failure in beta-2' }] });
   });
 
+  test('a flag before the run folder does not take the folder as its value', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'bench-flags-'));
+    const dir = join(root, 'run');
+    await run(process.execPath, [consumer(root), dir]);
+
+    const reported = await cli('report', '--json', dir);
+    const watched = await cli('watch', '--json', '--poll', '0.1', dir);
+
+    expect(reported.code).toBe(0);
+    expect(JSON.parse(reported.stdout)).toMatchObject({ state: 'complete', completed: 6 });
+    expect(watched.code).toBe(0);
+    expect(JSON.parse(watched.stdout)).toMatchObject({ state: 'complete', exitCode: 0 });
+  });
+
+  test('with --json a failed command prints its error with a stable code', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'bench-errors-'));
+
+    const missing = await cli('report', '--json', join(root, 'missing'));
+    const noFolder = await cli('watch', '--json');
+    const unknown = await cli('publish', '--json');
+    const refused = await cli('freeze', '--json', '--repo', root, '--revision', 'HEAD', '--into', root);
+    const plain = await cli('report', join(root, 'missing'));
+
+    expect(missing.code).toBe(2);
+    expect(JSON.parse(missing.stdout)).toMatchObject({ ok: false, error: { code: 'not-found' } });
+    expect(JSON.parse(noFolder.stdout)).toMatchObject({ ok: false, error: { code: 'usage', message: 'watch needs the run folder' } });
+    expect(JSON.parse(unknown.stdout)).toMatchObject({ ok: false, error: { code: 'usage' } });
+    expect(JSON.parse(refused.stdout)).toMatchObject({ ok: false, error: { code: 'failed', message: expect.stringContaining('already exists') } });
+    expect(plain.code).toBe(2);
+    expect(plain.stdout).toBe('');
+    expect(plain.stderr).toContain('ENOENT');
+  });
+
   test('freezing copies one committed revision and refuses to overwrite', async () => {
     const root = mkdtempSync(join(tmpdir(), 'bench-freeze-'));
     const repo = join(root, 'repo');
@@ -174,5 +207,26 @@ describe('bench toolkit', () => {
     const child = spawn('launchctl', ['print', `gui/${process.getuid()}/${label}`], { stdio: 'ignore' });
     const [code] = await once(child, 'close');
     expect(code).not.toBe(0);
+  });
+
+  test.skipIf(process.platform !== 'darwin')('on macOS a label is launched again after its job finished, never while it runs', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'bench-relaunch-'));
+    const label = `test-core.bench.relaunch.${process.pid}`;
+    const first = join(root, 'first');
+    const second = join(root, 'second');
+    const busy = join(root, 'busy');
+    await cli('launch', '--folder', first, '--label', label, '--cwd', root, '--', 'node', consumer(root), first);
+    await cli('watch', first, '--poll', '0.1');
+
+    const again = await cli('launch', '--folder', second, '--label', label, '--cwd', root, '--', 'node', consumer(root, { wait: 'alpha-1' }), second);
+    await waitForFolder(second, () => existsSync(join(second, 'run.log')) && readFileSync(join(second, 'run.log'), 'utf8').includes('waiting alpha-1'));
+    const whileRunning = await cli('launch', '--folder', busy, '--label', label, '--cwd', root, '--', 'node', consumer(root), busy);
+    await cli('stop', second);
+    const watched = await cli('watch', second, '--poll', '0.1');
+
+    expect(again.code).toBe(0);
+    expect(whileRunning.code).toBe(2);
+    expect(whileRunning.stderr).toContain(`${label} is still running`);
+    expect(watched.stdout).toContain('interrupted');
   });
 });

@@ -70,3 +70,13 @@ jobs:
         with:
           name: playwright-output
           path: .test-output/
+  bench-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: npm ci
+      - name: The benchmark runner and toolkit, with the launchd path that only runs on macOS
+        run: npx vitest run tests/js/bench.test.js tests/js/bench-toolkit.test.js

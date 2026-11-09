@@ -1,14 +1,18 @@
 // End-to-end tests for bench/SCENARIOS.md: one test per scenario, named after its title. Each test runs a fresh
 // consumer program in a temporary folder, so locks, signals and resume cross a real process boundary.
-import { spawn } from 'node:child_process';
+import { execFile, spawn } from 'node:child_process';
 import { once } from 'node:events';
-import { mkdtempSync, readFileSync, readdirSync, writeFileSync, existsSync } from 'node:fs';
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, watch, writeFileSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { createInterface } from 'node:readline';
+import { promisify } from 'node:util';
 import { describe, expect, test } from 'vitest';
+import { processStart } from '../../bench/bench.mjs';
+import { readState } from '../../bench/report.mjs';
 
 const BENCH = resolve('bench/bench.mjs');
+const REPORT = resolve('bench/report.mjs');
 
 // The consumer: a plan built from a JSON config, and a task body whose behaviour the config chooses.
 const CONSUMER = `
@@ -21,6 +25,7 @@ let started = 0;
 let release;
 const barrier = new Promise(done => { release = done; });
 const groups = new Map();
+const attempts = new Map();
 const yieldTurn = () => new Promise(done => setImmediate(done));
 const tasks = config.rate
   ? Object.keys(config.rate).map(id => ({ id }))
@@ -31,9 +36,10 @@ try {
   const result = await runBench({
     dir: config.dir, revision: 'rev-test', resume: Boolean(config.resume), tasks,
     gate: config.rate ? rateGate({ threshold: 0.51 }) : config.flat ? undefined : streakGate({ required: config.rounds, regression: 1 }),
-    concurrency: config.concurrency ?? 1,
+    concurrency: config.concurrency ?? 1, timeoutMs: config.timeoutMs, retries: config.retries,
+    budget: config.capUsd ? { capUsd: config.capUsd, estimate: () => 1 } : undefined, roundsInOrder: config.roundsInOrder,
     exclusive: task => task.group,
-    freeze: config.freeze, secrets: config.secrets,
+    freeze: config.freeze, secrets: config.secrets, config: config.config,
     async run(task, { signal, taskDir }) {
       console.log('ran ' + task.id);
       if (config.block?.includes(task.id)) {
@@ -43,6 +49,8 @@ try {
         await new Promise((_, reject) => signal.addEventListener('abort', () => { clearInterval(handle); reject(new Error('aborted')); }, { once: true }));
       }
       if (config.rate) return { ok: true, outcome: config.rate[task.id] };
+      attempts.set(task.id, (attempts.get(task.id) ?? 0) + 1);
+      if (config.infraFailures?.[task.id] >= attempts.get(task.id)) return { ok: false, infra: true, error: 'HTTP 503', ...(config.capUsd ? { costUsd: 1 } : {}) };
       running++;
       const group = task.group;
       const overlap = group ? (groups.get(group) ?? 0) > 0 : false;
@@ -55,8 +63,15 @@ try {
       running--;
       if (group) groups.set(group, groups.get(group) - 1);
       if (config.secretTask === task.id) writeFileSync(join(taskDir, 'reply.json'), JSON.stringify({ reply: config.secrets[0] }));
+      if (config.encodedTask === task.id) {
+        const secret = config.secrets[0];
+        writeFileSync(join(taskDir, 'reply.json'), JSON.stringify({ reply: secret }));
+        writeFileSync(join(taskDir, 'url.txt'), 'https://example.invalid/?key=' + encodeURIComponent(secret));
+        writeFileSync(join(taskDir, 'header.txt'), 'Authorization: Basic ' + Buffer.from('me:' + secret).toString('base64'));
+        writeFileSync(join(taskDir, 'trace.bin'), Buffer.concat([Buffer.alloc((1 << 20) - 5, 0xff), Buffer.from(secret)]));
+      }
       if (config.fail?.includes(task.id)) return { ok: false, checks: { passed: 1, expected: 2 }, detail: 'synthetic failure' };
-      return { ok: true, checks: { passed: 2, expected: 2 }, running: seen, overlap };
+      return { ok: true, checks: { passed: 2, expected: 2 }, running: seen, overlap, ...(config.capUsd ? { costUsd: 1 } : {}) };
     },
   });
   console.log('RESULT ' + JSON.stringify(result));
@@ -74,8 +89,8 @@ function workspace() {
 }
 
 /** Start the consumer; `lines` collects its output, `waitFor(text)` resolves when a line contains the text. */
-function start(root, config) {
-  const child = spawn(process.execPath, [join(root, 'consumer.mjs'), JSON.stringify(config)], { cwd: root });
+function start(root, config, env = process.env) {
+  const child = spawn(process.execPath, [join(root, 'consumer.mjs'), JSON.stringify(config)], { cwd: root, env });
   const lines = [];
   const waiting = [];
   createInterface({ input: child.stdout }).on('line', line => {
@@ -90,7 +105,7 @@ function start(root, config) {
   return { child, lines, finished, waitFor };
 }
 
-const run = (root, config) => start(root, config).finished;
+const run = (root, config, env) => start(root, config, env).finished;
 const json = path => JSON.parse(readFileSync(path, 'utf8'));
 const ran = lines => lines.filter(l => l.startsWith('ran ')).map(l => l.slice(4));
 
@@ -132,6 +147,18 @@ describe('bench runner', () => {
     expect(typeof failed.seconds).toBe('number');
   });
 
+  test('with rounds in order, no task of a later round starts before the earlier round finished', async () => {
+    const root = workspace();
+    const free = await run(root, { dir: join(root, 'free'), rounds: 2, subjects: ['alpha', 'beta'], fail: ['r1-beta'], concurrency: 4 });
+    const ordered = await run(root, { dir: join(root, 'ordered'), rounds: 2, subjects: ['alpha', 'beta'], fail: ['r1-beta'], concurrency: 4,
+      roundsInOrder: true });
+
+    expect(free.result.state).toBe('needs-investigation');
+    expect(ran(free.lines).sort()).toEqual(['r1-alpha', 'r1-beta', 'r2-alpha', 'r2-beta']);
+    expect(ordered.result.state).toBe('needs-investigation');
+    expect(ran(ordered.lines).sort()).toEqual(['r1-alpha', 'r1-beta']);
+  });
+
   test('only one runner works in a report folder and a stale lock is reclaimed', async () => {
     const root = workspace();
     const dir = join(root, 'report');
@@ -148,6 +175,103 @@ describe('bench runner', () => {
     expect(ran(second.lines)).toEqual([]);
     expect(later.code).toBe(0);
     expect(later.result.state).toBe('stable-and-regression-passed');
+  });
+
+  test('a lock or running state left by a process whose PID was reused is stale', async () => {
+    const root = workspace();
+    const dir = join(root, 'report');
+    await run(root, { dir, rounds: 1, subjects: ['alpha'] });
+    const finished = json(join(dir, 'state.json'));
+    const reused = { pid: process.pid, started: 'Thu Jan  1 00:00:00 1970' };
+    const live = { pid: process.pid, started: processStart(process.pid) };
+
+    writeFileSync(join(dir, 'state.json'), JSON.stringify({ ...finished, state: 'running', pid: reused.pid, pidStarted: reused.started }));
+    const staleState = await readState(dir);
+    writeFileSync(join(dir, 'state.json'), JSON.stringify({ ...finished, state: 'running', pid: live.pid, pidStarted: live.started }));
+    const liveState = await readState(dir);
+    const other = join(root, 'other');
+    mkdirSync(other);
+    writeFileSync(join(other, 'run.lock'), JSON.stringify(live));
+    const refused = await run(root, { dir: other, rounds: 1, subjects: ['alpha'] });
+    writeFileSync(join(other, 'run.lock'), JSON.stringify(reused));
+    const reclaimed = await run(root, { dir: other, rounds: 1, subjects: ['alpha'] });
+
+    expect(staleState.state).toBe('stale');
+    expect(liveState.state).toBe('running');
+    expect(refused.lines.join('\n')).toContain(`Run already active (PID ${process.pid})`);
+    expect(reclaimed.result.state).toBe('stable-and-regression-passed');
+  });
+
+  test('a stale lock replaced by another runner before it is removed is kept', async () => {
+    const root = workspace();
+    const dir = join(root, 'report');
+    const bin = join(root, 'bin');
+    mkdirSync(dir);
+    mkdirSync(bin);
+    const lockPath = join(dir, 'run.lock');
+    const other = JSON.stringify({ pid: process.pid, started: 'A-start' });
+    writeFileSync(lockPath, JSON.stringify({ pid: process.pid, started: 'old-start' }));
+    // A stand-in for ps: the first time the stale lock is checked, another runner replaces it with its own lock.
+    writeFileSync(join(bin, 'ps'), '#!/bin/sh\nif grep -q old-start "$LOCK"; then printf \'%s\' "$OTHER_LOCK" > "$LOCK"; fi\necho A-start\n');
+    chmodSync(join(bin, 'ps'), 0o755);
+    const env = { ...process.env, PATH: `${bin}:${process.env.PATH}`, LOCK: lockPath, OTHER_LOCK: other };
+
+    const second = await run(root, { dir, rounds: 1, subjects: ['alpha'] }, env);
+
+    expect(second.code).toBe(3);
+    expect(second.lines.join('\n')).toContain(`Run already active (PID ${process.pid})`);
+    expect(ran(second.lines)).toEqual([]);
+    expect(readFileSync(lockPath, 'utf8')).toBe(other);
+  });
+
+  test('a runner that is still taking the lock keeps it from a runner starting at the same moment', async () => {
+    const root = workspace();
+    const dir = join(root, 'report');
+    const bin = join(root, 'bin');
+    mkdirSync(bin);
+    const held = join(root, 'held');
+    const release = join(root, 'release');
+    // A slow ps for the first runner: its first call waits until the test releases it.
+    writeFileSync(join(bin, 'ps'), '#!/bin/sh\nif [ ! -f "$HELD" ]; then : > "$HELD"; while [ ! -f "$RELEASE" ]; do sleep 0.05; done; fi\nexec /bin/ps "$@"\n');
+    chmodSync(join(bin, 'ps'), 0o755);
+    const slow = { ...process.env, PATH: `${bin}:${process.env.PATH}`, HELD: held, RELEASE: release };
+    const appeared = new Promise(done => {
+      const watcher = watch(root, () => { if (existsSync(held)) { watcher.close(); done(); } });
+    });
+
+    const first = start(root, { dir, rounds: 1, subjects: ['alpha'] }, slow);
+    await appeared;
+    const second = start(root, { dir, rounds: 1, subjects: ['alpha'], block: ['r1-alpha'] });
+    await second.waitFor('started r1-alpha');
+    writeFileSync(release, '');
+    const refused = await first.finished;
+    second.child.kill('SIGINT');
+    await second.finished;
+
+    expect(refused.code).toBe(3);
+    expect(refused.lines.join('\n')).toContain(`Run already active (PID ${second.child.pid})`);
+    expect(ran(refused.lines)).toEqual([]);
+  });
+
+  test('a run started under another locale and time zone is still seen as running', async () => {
+    const root = workspace();
+    const dir = join(root, 'report');
+    const honolulu = { ...process.env, TZ: 'Pacific/Honolulu', LC_ALL: 'C' };
+    const tokyo = { ...process.env, TZ: 'Asia/Tokyo', LANG: 'ja_JP.UTF-8', LC_ALL: 'ja_JP.UTF-8' };
+    const first = start(root, { dir, rounds: 1, subjects: ['alpha'], block: ['r1-alpha'] }, honolulu);
+    await first.waitFor('started r1-alpha');
+
+    const second = await run(root, { dir, rounds: 1, subjects: ['alpha'], resume: true }, tokyo);
+    const { stdout } = await promisify(execFile)(process.execPath, ['--input-type=module', '-e',
+      `import { readState } from ${JSON.stringify(REPORT)}; console.log(JSON.stringify(await readState(${JSON.stringify(dir)})));`],
+      { env: tokyo });
+    first.child.kill('SIGINT');
+    await first.finished;
+
+    expect(second.code).toBe(3);
+    expect(second.lines.join('\n')).toContain(`Run already active (PID ${first.child.pid})`);
+    expect(ran(second.lines)).toEqual([]);
+    expect(JSON.parse(stdout).state).toBe('running');
   });
 
   test('an interrupted run resumes from its checkpoints without repeating finished tasks', async () => {
@@ -186,6 +310,38 @@ describe('bench runner', () => {
     expect(ran(resumed.lines)).toEqual([]);
   });
 
+  test('a resume refuses when the list of frozen files changed', async () => {
+    const root = workspace();
+    const dir = join(root, 'report');
+    writeFileSync(join(root, 'engine.js'), 'export const depth = 4;\n');
+    writeFileSync(join(root, 'book.js'), 'export const openings = [];\n');
+    const first = start(root, { dir, rounds: 1, subjects: ['alpha'], block: ['r1-alpha'], freeze: { root, files: ['engine.js'] } });
+    await first.waitFor('started r1-alpha');
+    first.child.kill('SIGINT');
+    await first.finished;
+
+    const resumed = await run(root, { dir, rounds: 1, subjects: ['alpha'], resume: true, freeze: { root, files: ['engine.js', 'book.js'] } });
+
+    expect(resumed.code).toBe(3);
+    expect(resumed.lines.join('\n')).toContain('Frozen file added: book.js');
+    expect(ran(resumed.lines)).toEqual([]);
+  });
+
+  test('a resume refuses when the host config changed', async () => {
+    const root = workspace();
+    const dir = join(root, 'report');
+    const first = start(root, { dir, rounds: 1, subjects: ['alpha'], block: ['r1-alpha'], config: { temperature: 0 } });
+    await first.waitFor('started r1-alpha');
+    first.child.kill('SIGINT');
+    await first.finished;
+
+    const resumed = await run(root, { dir, rounds: 1, subjects: ['alpha'], resume: true, config: { temperature: 0.7 } });
+
+    expect(resumed.code).toBe(3);
+    expect(resumed.lines.join('\n')).toContain('The config changed since the run started');
+    expect(ran(resumed.lines)).toEqual([]);
+  });
+
   test('a finished report folder is never reused', async () => {
     const root = workspace();
     const dir = join(root, 'report');
@@ -216,6 +372,25 @@ describe('bench runner', () => {
     expect(readFileSync(join(dir, 'state.json'), 'utf8')).not.toContain(secret);
   });
 
+  test('a secret written in an encoded form fails the run and a secret too short to scan is reported', async () => {
+    const root = workspace();
+    const dir = join(root, 'report');
+    const secret = 'sk-synthetic/0123+"abcdef';
+
+    const { code, result } = await run(root, { dir, rounds: 1, subjects: ['alpha'], secrets: [secret, 'short'], encodedTask: 'r1-alpha' });
+
+    expect(code).toBe(2);
+    expect(result.state).toBe('secret-leak');
+    expect(result.summary.leaks).toEqual([
+      { file: 'tasks/r1-alpha/header.txt', secret: 0, form: 'base64' },
+      { file: 'tasks/r1-alpha/reply.json', secret: 0, form: 'json' },
+      { file: 'tasks/r1-alpha/trace.bin', secret: 0 },
+      { file: 'tasks/r1-alpha/url.txt', secret: 0, form: 'url' },
+    ]);
+    expect(result.summary.unscannedSecrets).toEqual([1]);
+    expect(readFileSync(join(dir, 'state.json'), 'utf8')).not.toContain('sk-synthetic');
+  });
+
   test('a win-rate run reports its score with a confidence interval', async () => {
     const root = workspace();
     const strong = Object.fromEntries(Array.from({ length: 200 }, (_, i) => ['g' + i, i < 150 ? 'win' : i < 170 ? 'draw' : 'loss']));
@@ -233,6 +408,77 @@ describe('bench runner', () => {
     expect(unclear.code).toBe(1);
     expect(unclear.result.summary.interval[0]).toBeLessThan(0.51);
     expect(unclear.result.summary.interval[1]).toBeGreaterThan(0.51);
+  });
+
+  test('a task that runs past its time limit is recorded as a timeout and the run goes on', async () => {
+    const root = workspace();
+    const dir = join(root, 'report');
+
+    const { code, result, lines } = await run(root, { dir, flat: 3, block: ['t1'], timeoutMs: 1000 });
+
+    expect(code).toBe(1);
+    expect(result.state).toBe('needs-investigation');
+    expect(result.summary.failed).toEqual(['t1']);
+    expect(json(join(dir, 'tasks', 't1.json'))).toMatchObject({ ok: false, result: { ok: false, error: 'timeout' } });
+    expect(ran(lines)).toEqual(['t0', 't1', 't2']);
+  });
+
+  test('an infrastructure failure is retried a bounded number of times before it counts', async () => {
+    const root = workspace();
+    const dir = join(root, 'report');
+
+    const { code, result, lines } = await run(root, { dir, flat: 3, retries: 1, infraFailures: { t0: 1, t1: 2 } });
+
+    expect(code).toBe(1);
+    expect(result.state).toBe('needs-investigation');
+    expect(result.summary.failed).toEqual(['t1']);
+    expect(json(join(dir, 'tasks', 't0.json'))).toMatchObject({ ok: true, attempts: 2 });
+    expect(json(join(dir, 'tasks', 't1.json'))).toMatchObject({ ok: false, attempts: 2, result: { infra: true, error: 'HTTP 503' } });
+    expect(ran(lines)).toEqual(['t0', 't0', 't1', 't1', 't2']);
+  });
+
+  test('a run stops before a task that would pass the spending cap and resumes under a higher cap', async () => {
+    const root = workspace();
+    const dir = join(root, 'report');
+
+    const capped = await run(root, { dir, flat: 4, capUsd: 2.5 });
+    const state = json(join(dir, 'state.json'));
+    const raised = await run(root, { dir, flat: 4, capUsd: 10, resume: true });
+
+    expect(capped.code).toBe(1);
+    expect(capped.result.state).toBe('budget-reached');
+    expect(ran(capped.lines)).toEqual(['t0', 't1']);
+    expect(state).toMatchObject({ state: 'budget-reached', spentUsd: 2, capUsd: 2.5 });
+    expect(raised.result.state).toBe('complete');
+    expect(ran(raised.lines)).toEqual(['t2', 't3']);
+    expect(json(join(dir, 'state.json'))).toMatchObject({ spentUsd: 4, capUsd: 10 });
+  });
+
+  test('an infrastructure retry never passes the spending cap', async () => {
+    const root = workspace();
+    const dir = join(root, 'report');
+
+    const { code, result, lines } = await run(root, { dir, flat: 3, retries: 2, capUsd: 2.5, infraFailures: { t0: 3 } });
+
+    expect(code).toBe(1);
+    expect(result.state).toBe('budget-reached');
+    expect(ran(lines)).toEqual(['t0', 't0']);
+    expect(json(join(dir, 'tasks', 't0.json'))).toMatchObject({ ok: false, attempts: 2, costUsd: 2, result: { infra: true } });
+    expect(json(join(dir, 'state.json'))).toMatchObject({ state: 'budget-reached', spentUsd: 2, capUsd: 2.5 });
+  });
+
+  test('a run that reached its spending cap can still be interrupted while a task is in flight', async () => {
+    const root = workspace();
+    const dir = join(root, 'report');
+    const first = start(root, { dir, flat: 3, concurrency: 2, block: ['t0'], capUsd: 1.5 });
+    await first.waitFor('started t0');
+
+    first.child.kill('SIGINT');
+    const interrupted = await first.finished;
+
+    expect(interrupted.code).toBe(130);
+    expect(interrupted.result.state).toBe('interrupted');
+    expect(ran(interrupted.lines)).toEqual(['t0']);
   });
 
   test('parallel tasks respect the limit and exclusive groups', async () => {
