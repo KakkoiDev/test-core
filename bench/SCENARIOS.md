@@ -34,6 +34,11 @@ Given an interrupted run whose manifest froze one source file
 When the run is resumed with a second file added to the frozen list
 Then the runner refuses, naming the added file, and runs no task
 
+### Scenario: a resume refuses when the host config changed
+Given an interrupted run started with one host config
+When the run is resumed with a different config
+Then the runner refuses and runs no task
+
 ### Scenario: a finished report folder is never reused
 Given a folder holding a finished run
 When a new run or a resume targets that folder

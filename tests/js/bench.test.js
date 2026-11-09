@@ -33,7 +33,7 @@ try {
     gate: config.rate ? rateGate({ threshold: 0.51 }) : config.flat ? undefined : streakGate({ required: config.rounds, regression: 1 }),
     concurrency: config.concurrency ?? 1,
     exclusive: task => task.group,
-    freeze: config.freeze, secrets: config.secrets,
+    freeze: config.freeze, secrets: config.secrets, config: config.config,
     async run(task, { signal, taskDir }) {
       console.log('ran ' + task.id);
       if (config.block?.includes(task.id)) {
@@ -200,6 +200,21 @@ describe('bench runner', () => {
 
     expect(resumed.code).toBe(3);
     expect(resumed.lines.join('\n')).toContain('Frozen file added: book.js');
+    expect(ran(resumed.lines)).toEqual([]);
+  });
+
+  test('a resume refuses when the host config changed', async () => {
+    const root = workspace();
+    const dir = join(root, 'report');
+    const first = start(root, { dir, rounds: 1, subjects: ['alpha'], block: ['r1-alpha'], config: { temperature: 0 } });
+    await first.waitFor('started r1-alpha');
+    first.child.kill('SIGINT');
+    await first.finished;
+
+    const resumed = await run(root, { dir, rounds: 1, subjects: ['alpha'], resume: true, config: { temperature: 0.7 } });
+
+    expect(resumed.code).toBe(3);
+    expect(resumed.lines.join('\n')).toContain('The config changed since the run started');
     expect(ran(resumed.lines)).toEqual([]);
   });
 

@@ -206,6 +206,7 @@ export async function runBench(options) {
       if (manifest.revision !== revision) throw new Error(`Revision changed: ${manifest.revision} → ${revision}`);
       if (manifest.plan !== plan) throw new Error('The task plan changed since the run started');
       if (manifest.gate !== gate.name) throw new Error('The gate changed since the run started');
+      if (JSON.stringify(manifest.config) !== JSON.stringify(config)) throw new Error('The config changed since the run started');
       const now = new Map(files.map(file => [file.path, file.sha256]));
       for (const file of manifest.files)
         if (now.get(file.path) !== file.sha256) throw new Error(`Frozen file changed: ${file.path}`);

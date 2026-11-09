@@ -58,7 +58,7 @@ Exit codes: 0 for `stable-and-regression-passed`, `complete` and `above-threshol
 ## Rules the runner enforces
 
 - **One run per folder.** A new run refuses a folder that already holds one. A resume refuses a finished run, a changed
-  revision, a changed plan, a changed gate, a changed, added or removed frozen file (`freeze: { root, files }`) or a checkpoint from
+  revision, a changed plan, a changed gate, a changed `config`, a changed, added or removed frozen file (`freeze: { root, files }`) or a checkpoint from
   another run. When it refuses, it changes nothing.
 - **Resume never repeats finished work.** Checkpointed tasks are skipped; tasks that were in flight run again.
 - **Concurrency is bounded.** `concurrency` caps the tasks in flight. `exclusive(task)` returns a key, and at most one
