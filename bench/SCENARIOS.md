@@ -64,6 +64,16 @@ Given a plan with one retry allowed, a task whose first attempt reports an infra
 When the runner finishes
 Then the first task passes on its second attempt, the second is recorded as failed after two attempts, and the state is needs-investigation
 
+### Scenario: a run stops before a task that would pass the spending cap and resumes under a higher cap
+Given a plan of four tasks that each cost one dollar, estimated at one dollar, and a cap of 2.5 dollars
+When the runner finishes, and the run is resumed with a cap of 10 dollars
+Then two tasks ran, the state is budget-reached with the spend recorded, and the resume runs only the other two and completes
+
+### Scenario: a run that reached its spending cap can still be interrupted while a task is in flight
+Given a run that reached its spending cap while one task is still in flight
+When the run gets SIGINT
+Then the state is interrupted with exit code 130 and no other task started
+
 ### Scenario: parallel tasks respect the limit and exclusive groups
 Given a plan of six tasks, a concurrency of three and two tasks sharing one exclusive group
 When the runner finishes

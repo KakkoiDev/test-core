@@ -5,9 +5,9 @@ import { readFile, readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 
 const FINAL = new Set(['stable-and-regression-passed', 'needs-investigation', 'complete', 'above-threshold', 'below-threshold',
-  'inconclusive', 'secret-leak', 'interrupted', 'runner-error']);
+  'inconclusive', 'budget-reached', 'secret-leak', 'interrupted', 'runner-error']);
 const EXIT = { 'stable-and-regression-passed': 0, complete: 0, 'above-threshold': 0, 'needs-investigation': 1, 'below-threshold': 1,
-  inconclusive: 1, interrupted: 130, 'runner-error': 2, 'secret-leak': 2, stale: 2 };
+  inconclusive: 1, 'budget-reached': 1, interrupted: 130, 'runner-error': 2, 'secret-leak': 2, stale: 2 };
 
 const median = values => {
   if (!values.length) return 0;

@@ -33,6 +33,7 @@ try {
     dir: config.dir, revision: 'rev-test', resume: Boolean(config.resume), tasks,
     gate: config.rate ? rateGate({ threshold: 0.51 }) : config.flat ? undefined : streakGate({ required: config.rounds, regression: 1 }),
     concurrency: config.concurrency ?? 1, timeoutMs: config.timeoutMs, retries: config.retries,
+    budget: config.capUsd ? { capUsd: config.capUsd, estimate: () => 1 } : undefined,
     exclusive: task => task.group,
     freeze: config.freeze, secrets: config.secrets, config: config.config,
     async run(task, { signal, taskDir }) {
@@ -59,7 +60,7 @@ try {
       if (group) groups.set(group, groups.get(group) - 1);
       if (config.secretTask === task.id) writeFileSync(join(taskDir, 'reply.json'), JSON.stringify({ reply: config.secrets[0] }));
       if (config.fail?.includes(task.id)) return { ok: false, checks: { passed: 1, expected: 2 }, detail: 'synthetic failure' };
-      return { ok: true, checks: { passed: 2, expected: 2 }, running: seen, overlap };
+      return { ok: true, checks: { passed: 2, expected: 2 }, running: seen, overlap, ...(config.capUsd ? { costUsd: 1 } : {}) };
     },
   });
   console.log('RESULT ' + JSON.stringify(result));
@@ -295,6 +296,37 @@ describe('bench runner', () => {
     expect(json(join(dir, 'tasks', 't0.json'))).toMatchObject({ ok: true, attempts: 2 });
     expect(json(join(dir, 'tasks', 't1.json'))).toMatchObject({ ok: false, attempts: 2, result: { infra: true, error: 'HTTP 503' } });
     expect(ran(lines)).toEqual(['t0', 't0', 't1', 't1', 't2']);
+  });
+
+  test('a run stops before a task that would pass the spending cap and resumes under a higher cap', async () => {
+    const root = workspace();
+    const dir = join(root, 'report');
+
+    const capped = await run(root, { dir, flat: 4, capUsd: 2.5 });
+    const state = json(join(dir, 'state.json'));
+    const raised = await run(root, { dir, flat: 4, capUsd: 10, resume: true });
+
+    expect(capped.code).toBe(1);
+    expect(capped.result.state).toBe('budget-reached');
+    expect(ran(capped.lines)).toEqual(['t0', 't1']);
+    expect(state).toMatchObject({ state: 'budget-reached', spentUsd: 2, capUsd: 2.5 });
+    expect(raised.result.state).toBe('complete');
+    expect(ran(raised.lines)).toEqual(['t2', 't3']);
+    expect(json(join(dir, 'state.json'))).toMatchObject({ spentUsd: 4, capUsd: 10 });
+  });
+
+  test('a run that reached its spending cap can still be interrupted while a task is in flight', async () => {
+    const root = workspace();
+    const dir = join(root, 'report');
+    const first = start(root, { dir, flat: 3, concurrency: 2, block: ['t0'], capUsd: 1.5 });
+    await first.waitFor('started t0');
+
+    first.child.kill('SIGINT');
+    const interrupted = await first.finished;
+
+    expect(interrupted.code).toBe(130);
+    expect(interrupted.result.state).toBe('interrupted');
+    expect(ran(interrupted.lines)).toEqual(['t0']);
   });
 
   test('parallel tasks respect the limit and exclusive groups', async () => {

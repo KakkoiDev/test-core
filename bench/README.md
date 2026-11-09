@@ -48,12 +48,13 @@ Failed tasks are kept exactly like passing ones. Nothing is ever deleted.
 | `rateGate({ threshold, z = 1.96 })` | a result `outcome`: `win`, `draw` or `loss` | score = (wins + draws / 2) / games, with a Wilson interval. `above-threshold` when the lower bound reaches the threshold, `below-threshold` when the upper bound is under it, otherwise `inconclusive`. There is no early stopping; a failed task stops the run as `needs-investigation`. |
 | `allGate()` (default) | — | `complete` when every task passes, otherwise `needs-investigation`. |
 
-Other states: `interrupted` (SIGINT/SIGTERM; tasks in flight are aborted and not recorded), `runner-error` (the
+Other states: `budget-reached` (the next task would pass the spending cap; tasks in flight finish and are recorded, and
+a resume with a higher cap continues), `interrupted` (SIGINT/SIGTERM; tasks in flight are aborted and not recorded), `runner-error` (the
 runner itself failed), and `secret-leak` (a configured secret value appears in a file under the run folder; the summary
 names the file and the secret's index, never its value).
 
 Exit codes: 0 for `stable-and-regression-passed`, `complete` and `above-threshold`; 1 for `needs-investigation`,
-`below-threshold` and `inconclusive`; 130 for `interrupted`; 2 for `runner-error` and `secret-leak`.
+`below-threshold`, `inconclusive` and `budget-reached`; 130 for `interrupted`; 2 for `runner-error` and `secret-leak`.
 
 ## Rules the runner enforces
 
@@ -70,6 +71,10 @@ Exit codes: 0 for `stable-and-regression-passed`, `complete` and `above-threshol
 - **An infrastructure flake is not a product failure.** A task that fails for a reason outside the product (an API 5xx,
   a rate limit) returns `infra: true`. With `retries: n`, such a task runs again up to n times before its result counts;
   the checkpoint records `attempts`. A product failure is never retried.
+- **Spending is capped.** With `budget: { capUsd, estimate }`, each task's result reports `costUsd` (summed over its
+  attempts into the checkpoint). A task starts only when the spend so far, the estimates of the tasks in flight and
+  `estimate(task)` stay within `capUsd`; otherwise the run ends as `budget-reached`. `state.json` holds `spentUsd` and
+  `capUsd`. The spend counts every checkpoint, so it carries over a resume.
 
 The host owns everything else: what a case asserts, which models or engines run, and how to start and stop the app.
 Keep case counts honest in the host. Rich AI Chat, for example, compares each suite's case list with its expected count

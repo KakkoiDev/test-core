@@ -9,7 +9,7 @@ const TASK_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
 const FINISHED = new Set(['stable-and-regression-passed', 'needs-investigation', 'complete', 'above-threshold',
   'below-threshold', 'inconclusive', 'secret-leak']);
 const EXIT = { 'stable-and-regression-passed': 0, complete: 0, 'above-threshold': 0, 'needs-investigation': 1,
-  'below-threshold': 1, inconclusive: 1, interrupted: 130, 'runner-error': 2, 'secret-leak': 2 };
+  'below-threshold': 1, inconclusive: 1, 'budget-reached': 1, interrupted: 130, 'runner-error': 2, 'secret-leak': 2 };
 
 const sha256 = data => createHash('sha256').update(data).digest('hex');
 
@@ -171,6 +171,8 @@ async function scan(dir, secrets) {
  *   exclusive   task => key: at most one running task per key (e.g. one local model)
  *   timeoutMs   a task still running after this many milliseconds is aborted and recorded as ok false, error 'timeout'
  *   retries     how many times a task whose result says `infra: true` runs again before that result counts (0)
+ *   budget      { capUsd, estimate: task => usd }: no task starts when the spend so far (tasks return `costUsd`), the
+ *               estimates of the tasks in flight and its own estimate would pass capUsd; the run ends as budget-reached
  *   secrets     literal values that must not appear in any file under `dir` when the run ends
  *   config      extra settings recorded in the manifest
  *   onEvent     ({ type, ... }) => void, for logs
@@ -178,7 +180,7 @@ async function scan(dir, secrets) {
  */
 export async function runBench(options) {
   const { dir, tasks, run, revision, resume = false, freeze, concurrency = 1, exclusive = () => undefined, secrets,
-    config = {}, timeoutMs, retries = 0, onEvent = () => {} } = options;
+    config = {}, timeoutMs, retries = 0, budget, onEvent = () => {} } = options;
   const gate = options.gate ?? allGate();
   if (!dir || !revision || typeof run !== 'function' || !Array.isArray(tasks) || !tasks.length)
     throw new Error('runBench needs dir, revision, run and a non-empty tasks list');
@@ -237,12 +239,16 @@ export async function runBench(options) {
   let state = 'running';
   let failure;
   let verdict = gate.evaluate(records, tasks);
+  let reserved = 0;
+  const spent = () => [...records.values()].reduce((sum, record) => sum + (record.costUsd ?? 0), 0);
   const save = () => atomic(statePath, { state, pid: process.pid, revision, startedAt, updatedAt: new Date().toISOString(),
     completed: records.size, total: tasks.length, active: [...active.values()], summary: verdict.summary,
-    ...(failure ? { failure } : {}) });
+    ...(budget ? { spentUsd: spent(), capUsd: budget.capUsd } : {}), ...(failure ? { failure } : {}) });
   const heartbeat = setInterval(() => { save().catch(() => {}); }, 15000);
   heartbeat.unref();
-  const interrupt = () => { if (state === 'running') { state = 'interrupted'; controller.abort(new Error('interrupted')); } };
+  const interrupt = () => {
+    if (state === 'running' || state === 'budget-reached') { state = 'interrupted'; controller.abort(new Error('interrupted')); }
+  };
   process.once('SIGINT', interrupt);
   process.once('SIGTERM', interrupt);
 
@@ -258,12 +264,16 @@ export async function runBench(options) {
         while (running < concurrency) {
           const index = pending.findIndex(task => { const key = exclusive(task); return key === undefined || !busy.has(key); });
           if (index === -1) break;
+          const estimate = budget ? Number(budget.estimate?.(pending[index]) ?? 0) : 0;
+          if (budget && spent() + reserved + estimate > budget.capUsd) { state = 'budget-reached'; break; }
           const [task] = pending.splice(index, 1);
           const key = exclusive(task);
           if (key !== undefined) busy.add(key);
           running++;
+          reserved += estimate;
           execute(task).then(() => {
             running--;
+            reserved -= estimate;
             if (key !== undefined) busy.delete(key);
             next();
           }, fail);
@@ -300,21 +310,23 @@ export async function runBench(options) {
       await save();
       let result;
       let attempts = 0;
+      let costUsd = 0;
       do {
         attempts++;
         if (attempts > 1) onEvent({ type: 'task-retry', id: task.id, attempt: attempts, error: result?.error });
         result = await attempt(task, taskDir);
+        costUsd += Number(result?.costUsd) || 0;
       } while (result?.infra === true && attempts <= retries && !controller.signal.aborted);
       active.delete(task.id);
       if (controller.signal.aborted) return;
       const seconds = Math.round(Number(process.hrtime.bigint() - clock) / 1e6) / 1e3;
       const record = { id: task.id, task, revision, fingerprint: manifest.fingerprint, startedAt: begun, seconds,
-        ok: result?.ok === true, ...(attempts > 1 ? { attempts } : {}), result: result ?? null };
+        ok: result?.ok === true, ...(attempts > 1 ? { attempts } : {}), ...(costUsd ? { costUsd } : {}), result: result ?? null };
       await atomic(join(dir, 'tasks', `${task.id}.json`), record);
       records.set(task.id, record);
       verdict = gate.evaluate(records, tasks);
       onEvent({ type: 'task-end', id: task.id, ok: record.ok, seconds });
-      if (verdict.stop && state === 'running') {
+      if (verdict.stop && (state === 'running' || state === 'budget-reached')) {
         state = verdict.state;
         controller.abort(new Error('gate stopped the run'));
       }
