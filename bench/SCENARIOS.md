@@ -104,6 +104,11 @@ Given a finished streak whose tasks report their cases, one of them failing with
 When the report command reads the run folder
 Then it prints the state, the checks, each subject's passed cases and median and slowest time, and the failing case with its detail, and the JSON form holds the same
 
+### Scenario: with --json a failed command prints its error with a stable code
+Given a missing run folder, a command without its folder, an unknown command and a freeze into an existing folder
+When each runs with --json, and the missing folder is reported again without it
+Then each prints ok false with the code not-found, usage, usage and failed, and without --json the error goes to stderr as text
+
 ### Scenario: freezing copies one committed revision and refuses to overwrite
 Given a git repository with a committed revision, an uncommitted edit and a dependency folder
 When the revision is frozen into a new folder, and again into the same folder

@@ -110,6 +110,25 @@ describe('bench toolkit', () => {
     expect(JSON.parse(watched.stdout)).toMatchObject({ state: 'complete', exitCode: 0 });
   });
 
+  test('with --json a failed command prints its error with a stable code', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'bench-errors-'));
+
+    const missing = await cli('report', '--json', join(root, 'missing'));
+    const noFolder = await cli('watch', '--json');
+    const unknown = await cli('publish', '--json');
+    const refused = await cli('freeze', '--json', '--repo', root, '--revision', 'HEAD', '--into', root);
+    const plain = await cli('report', join(root, 'missing'));
+
+    expect(missing.code).toBe(2);
+    expect(JSON.parse(missing.stdout)).toMatchObject({ ok: false, error: { code: 'not-found' } });
+    expect(JSON.parse(noFolder.stdout)).toMatchObject({ ok: false, error: { code: 'usage', message: 'watch needs the run folder' } });
+    expect(JSON.parse(unknown.stdout)).toMatchObject({ ok: false, error: { code: 'usage' } });
+    expect(JSON.parse(refused.stdout)).toMatchObject({ ok: false, error: { code: 'failed', message: expect.stringContaining('already exists') } });
+    expect(plain.code).toBe(2);
+    expect(plain.stdout).toBe('');
+    expect(plain.stderr).toContain('ENOENT');
+  });
+
   test('freezing copies one committed revision and refuses to overwrite', async () => {
     const root = mkdtempSync(join(tmpdir(), 'bench-freeze-'));
     const repo = join(root, 'repo');

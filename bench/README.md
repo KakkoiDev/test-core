@@ -104,6 +104,10 @@ node test-core/bench/cli.mjs report reports/run-1 --json  # at any time, also wh
 node test-core/bench/cli.mjs stop reports/run-1
 ```
 
+Every command exits 2 when it fails. With `--json`, the failure is printed on stdout as
+`{ "ok": false, "error": { "code", "message" } }`, where `code` is `usage` (a missing or wrong argument), `not-found`
+(no such run folder or file) or `failed` (anything else, for example a refused freeze).
+
 ## The method
 
 These rules came out of releasing Rich AI Chat against five models, three local and slow. Each one prevented a false
