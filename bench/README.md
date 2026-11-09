@@ -50,8 +50,9 @@ Failed tasks are kept exactly like passing ones. Nothing is ever deleted.
 
 Other states: `budget-reached` (the next task would pass the spending cap; tasks in flight finish and are recorded, and
 a resume with a higher cap continues), `interrupted` (SIGINT/SIGTERM; tasks in flight are aborted and not recorded), `runner-error` (the
-runner itself failed), and `secret-leak` (a configured secret value appears in a file under the run folder; the summary
-names the file and the secret's index, never its value).
+runner itself failed), and `secret-leak` (a configured secret value appears in a file under the run folder, as it is or
+JSON-escaped, URL-encoded or base64; the summary names the file, the secret's index and the encoded `form`, never the
+value). A secret shorter than 8 characters is not scanned; its index is listed in the summary's `unscannedSecrets`.
 
 Exit codes: 0 for `stable-and-regression-passed`, `complete` and `above-threshold`; 1 for `needs-investigation`,
 `below-threshold`, `inconclusive` and `budget-reached`; 130 for `interrupted`; 2 for `runner-error` and `secret-leak`.

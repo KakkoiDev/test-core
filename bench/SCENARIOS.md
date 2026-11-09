@@ -54,6 +54,11 @@ Given a plan whose task writes a configured secret value into its report
 When the runner finishes
 Then the state is secret-leak, the scan names the file but not the value, and the exit code is 2
 
+### Scenario: a secret written in an encoded form fails the run and a secret too short to scan is reported
+Given a plan whose task writes a configured secret JSON-escaped, URL-encoded, base64-encoded and at the end of a large binary file, and a second secret of five characters
+When the runner finishes
+Then the state is secret-leak, each file is named with the form found but not the value, and the short secret is listed as not scanned
+
 ### Scenario: a win-rate run reports its score with a confidence interval
 Given a match plan of independent games with wins, losses and draws, and a threshold of 0.51
 When the runner finishes

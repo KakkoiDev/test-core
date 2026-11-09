@@ -141,22 +141,59 @@ export function allGate() {
   };
 }
 
+/** The byte strings a secret value can appear as: itself, JSON-escaped, URL-encoded, and base64 at each alignment. */
+function secretForms(value, secret) {
+  const forms = [{ secret, bytes: Buffer.from(value) }];
+  const json = JSON.stringify(value).slice(1, -1);
+  if (json !== value) forms.push({ secret, form: 'json', bytes: Buffer.from(json) });
+  const url = encodeURIComponent(value);
+  if (url !== value) forms.push({ secret, form: 'url', bytes: Buffer.from(url) });
+  const bytes = Buffer.from(value);
+  for (let shift = 0; shift < 3; shift++) {
+    const encoded = Buffer.concat([Buffer.alloc(shift), bytes]).toString('base64');
+    const inner = encoded.slice(Math.ceil((shift * 8) / 6), Math.floor(((shift + bytes.length) * 8) / 6));
+    forms.push({ secret, form: 'base64', bytes: Buffer.from(inner) });
+  }
+  return forms;
+}
+
+/** The first form of each secret found in the file, read in chunks that overlap by the longest form. */
+async function findForms(path, forms) {
+  const found = new Map();
+  const overlap = Math.max(...forms.map(form => form.bytes.length)) - 1;
+  const handle = await open(path, 'r');
+  try {
+    let carry = Buffer.alloc(0);
+    for (;;) {
+      const chunk = Buffer.alloc(1 << 20);
+      const { bytesRead } = await handle.read(chunk, 0, chunk.length, null);
+      if (!bytesRead) break;
+      const window = Buffer.concat([carry, chunk.subarray(0, bytesRead)]);
+      for (const form of forms) if (!found.has(form.secret) && window.includes(form.bytes)) found.set(form.secret, form.form);
+      carry = window.subarray(Math.max(0, window.length - overlap));
+    }
+  } finally {
+    await handle.close();
+  }
+  return found;
+}
+
 async function scan(dir, secrets) {
-  const values = (secrets ?? []).filter(value => typeof value === 'string' && value.length >= 8);
-  if (!values.length) return [];
+  const values = (secrets ?? []).map((value, secret) => ({ value, secret })).filter(({ value }) => typeof value === 'string');
+  const unscanned = values.filter(({ value }) => value.length < 8).map(({ secret }) => secret);
+  const forms = values.filter(({ value }) => value.length >= 8).flatMap(({ value, secret }) => secretForms(value, secret));
   const leaks = [];
   async function walk(folder) {
     for (const entry of await readdir(folder, { withFileTypes: true })) {
       const path = join(folder, entry.name);
       if (entry.isDirectory()) await walk(path);
-      else if (entry.isFile()) {
-        const text = await readFile(path, 'utf8');
-        values.forEach((value, secret) => { if (text.includes(value)) leaks.push({ file: relative(dir, path), secret }); });
-      }
+      else if (entry.isFile())
+        for (const [secret, form] of await findForms(path, forms)) leaks.push({ file: relative(dir, path), secret, ...(form ? { form } : {}) });
     }
   }
-  await walk(dir);
-  return leaks;
+  if (forms.length) await walk(dir);
+  leaks.sort((a, b) => (a.file < b.file ? -1 : a.file > b.file ? 1 : a.secret - b.secret));
+  return { leaks, unscanned };
 }
 
 /**
@@ -174,7 +211,8 @@ async function scan(dir, secrets) {
  *   roundsInOrder  no task with a `round` starts before every task of the earlier rounds finished
  *   budget      { capUsd, estimate: task => usd }: no task starts when the spend so far (tasks return `costUsd`), the
  *               estimates of the tasks in flight and its own estimate would pass capUsd; the run ends as budget-reached
- *   secrets     literal values that must not appear in any file under `dir` when the run ends
+ *   secrets     literal values that must not appear in any file under `dir` when the run ends, as they are or JSON-escaped,
+ *               URL-encoded or base64; values under 8 characters are not scanned and are listed in `unscannedSecrets`
  *   config      extra settings recorded in the manifest
  *   onEvent     ({ type, ... }) => void, for logs
  * Returns { state, exitCode, summary }. Throws (and changes nothing) when it refuses to start.
@@ -349,7 +387,11 @@ export async function runBench(options) {
     process.removeListener('SIGINT', interrupt);
     process.removeListener('SIGTERM', interrupt);
   }
-  const leaks = await scan(dir, secrets);
+  const { leaks, unscanned } = await scan(dir, secrets);
+  if (unscanned.length) {
+    onEvent({ type: 'secrets-unscanned', secrets: unscanned });
+    verdict = { ...verdict, summary: { ...verdict.summary, unscannedSecrets: unscanned } };
+  }
   if (leaks.length) {
     state = 'secret-leak';
     verdict = { ...verdict, summary: { ...verdict.summary, leaks } };

@@ -59,6 +59,13 @@ try {
       running--;
       if (group) groups.set(group, groups.get(group) - 1);
       if (config.secretTask === task.id) writeFileSync(join(taskDir, 'reply.json'), JSON.stringify({ reply: config.secrets[0] }));
+      if (config.encodedTask === task.id) {
+        const secret = config.secrets[0];
+        writeFileSync(join(taskDir, 'reply.json'), JSON.stringify({ reply: secret }));
+        writeFileSync(join(taskDir, 'url.txt'), 'https://example.invalid/?key=' + encodeURIComponent(secret));
+        writeFileSync(join(taskDir, 'header.txt'), 'Authorization: Basic ' + Buffer.from('me:' + secret).toString('base64'));
+        writeFileSync(join(taskDir, 'trace.bin'), Buffer.concat([Buffer.alloc((1 << 20) - 5, 0xff), Buffer.from(secret)]));
+      }
       if (config.fail?.includes(task.id)) return { ok: false, checks: { passed: 1, expected: 2 }, detail: 'synthetic failure' };
       return { ok: true, checks: { passed: 2, expected: 2 }, running: seen, overlap, ...(config.capUsd ? { costUsd: 1 } : {}) };
     },
@@ -262,6 +269,25 @@ describe('bench runner', () => {
     expect(result.state).toBe('secret-leak');
     expect(result.summary.leaks).toEqual([{ file: 'tasks/r1-alpha/reply.json', secret: 0 }]);
     expect(readFileSync(join(dir, 'state.json'), 'utf8')).not.toContain(secret);
+  });
+
+  test('a secret written in an encoded form fails the run and a secret too short to scan is reported', async () => {
+    const root = workspace();
+    const dir = join(root, 'report');
+    const secret = 'sk-synthetic/0123+"abcdef';
+
+    const { code, result } = await run(root, { dir, rounds: 1, subjects: ['alpha'], secrets: [secret, 'short'], encodedTask: 'r1-alpha' });
+
+    expect(code).toBe(2);
+    expect(result.state).toBe('secret-leak');
+    expect(result.summary.leaks).toEqual([
+      { file: 'tasks/r1-alpha/header.txt', secret: 0, form: 'base64' },
+      { file: 'tasks/r1-alpha/reply.json', secret: 0, form: 'json' },
+      { file: 'tasks/r1-alpha/trace.bin', secret: 0 },
+      { file: 'tasks/r1-alpha/url.txt', secret: 0, form: 'url' },
+    ]);
+    expect(result.summary.unscannedSecrets).toEqual([1]);
+    expect(readFileSync(join(dir, 'state.json'), 'utf8')).not.toContain('sk-synthetic');
   });
 
   test('a win-rate run reports its score with a confidence interval', async () => {
