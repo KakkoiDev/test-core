@@ -33,7 +33,7 @@ try {
     dir: config.dir, revision: 'rev-test', resume: Boolean(config.resume), tasks,
     gate: config.rate ? rateGate({ threshold: 0.51 }) : config.flat ? undefined : streakGate({ required: config.rounds, regression: 1 }),
     concurrency: config.concurrency ?? 1, timeoutMs: config.timeoutMs, retries: config.retries,
-    budget: config.capUsd ? { capUsd: config.capUsd, estimate: () => 1 } : undefined,
+    budget: config.capUsd ? { capUsd: config.capUsd, estimate: () => 1 } : undefined, roundsInOrder: config.roundsInOrder,
     exclusive: task => task.group,
     freeze: config.freeze, secrets: config.secrets, config: config.config,
     async run(task, { signal, taskDir }) {
@@ -134,6 +134,18 @@ describe('bench runner', () => {
     expect(failed.ok).toBe(false);
     expect(failed.result.detail).toBe('synthetic failure');
     expect(typeof failed.seconds).toBe('number');
+  });
+
+  test('with rounds in order, no task of a later round starts before the earlier round finished', async () => {
+    const root = workspace();
+    const free = await run(root, { dir: join(root, 'free'), rounds: 2, subjects: ['alpha', 'beta'], fail: ['r1-beta'], concurrency: 4 });
+    const ordered = await run(root, { dir: join(root, 'ordered'), rounds: 2, subjects: ['alpha', 'beta'], fail: ['r1-beta'], concurrency: 4,
+      roundsInOrder: true });
+
+    expect(free.result.state).toBe('needs-investigation');
+    expect(ran(free.lines).sort()).toEqual(['r1-alpha', 'r1-beta', 'r2-alpha', 'r2-beta']);
+    expect(ordered.result.state).toBe('needs-investigation');
+    expect(ran(ordered.lines).sort()).toEqual(['r1-alpha', 'r1-beta']);
   });
 
   test('only one runner works in a report folder and a stale lock is reclaimed', async () => {

@@ -14,6 +14,11 @@ Given a streak plan whose second round has one failing task
 When the runner finishes
 Then the state is needs-investigation, the failing report with its detail is kept, no later round ran and the exit code is 1
 
+### Scenario: with rounds in order, no task of a later round starts before the earlier round finished
+Given a streak plan of two subjects whose first round has one failing task, run with a concurrency of four
+When it runs once freely and once with rounds in order
+Then the free run also started the second round's tasks, and the ordered run started only the first round's
+
 ### Scenario: only one runner works in a report folder and a stale lock is reclaimed
 Given a report folder locked by a running process
 When a second runner starts there, and later a runner starts after the locking process has exited

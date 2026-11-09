@@ -63,7 +63,9 @@ Exit codes: 0 for `stable-and-regression-passed`, `complete` and `above-threshol
   another run. When it refuses, it changes nothing.
 - **Resume never repeats finished work.** Checkpointed tasks are skipped; tasks that were in flight run again.
 - **Concurrency is bounded.** `concurrency` caps the tasks in flight. `exclusive(task)` returns a key, and at most one
-  task per key runs at a time, for example one generation per local model.
+  task per key runs at a time, for example one generation per local model. With `concurrency` above 1, tasks of a later
+  round start while the earlier round still runs, so a failure stops work that was already paid for. `roundsInOrder:
+  true` holds every task with a `round` until all tasks of the earlier rounds finished.
 - **Tasks get the abort signal.** Pass it to child processes and requests so an interruption stops them.
 - **A hung task does not hang the run.** With `timeoutMs`, a task still running after that many milliseconds gets its
   signal aborted and is recorded as `ok: false, error: 'timeout'`; the run goes on. A task that ignores the signal keeps

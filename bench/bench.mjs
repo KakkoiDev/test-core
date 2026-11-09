@@ -171,6 +171,7 @@ async function scan(dir, secrets) {
  *   exclusive   task => key: at most one running task per key (e.g. one local model)
  *   timeoutMs   a task still running after this many milliseconds is aborted and recorded as ok false, error 'timeout'
  *   retries     how many times a task whose result says `infra: true` runs again before that result counts (0)
+ *   roundsInOrder  no task with a `round` starts before every task of the earlier rounds finished
  *   budget      { capUsd, estimate: task => usd }: no task starts when the spend so far (tasks return `costUsd`), the
  *               estimates of the tasks in flight and its own estimate would pass capUsd; the run ends as budget-reached
  *   secrets     literal values that must not appear in any file under `dir` when the run ends
@@ -180,7 +181,7 @@ async function scan(dir, secrets) {
  */
 export async function runBench(options) {
   const { dir, tasks, run, revision, resume = false, freeze, concurrency = 1, exclusive = () => undefined, secrets,
-    config = {}, timeoutMs, retries = 0, budget, onEvent = () => {} } = options;
+    config = {}, timeoutMs, retries = 0, budget, roundsInOrder = false, onEvent = () => {} } = options;
   const gate = options.gate ?? allGate();
   if (!dir || !revision || typeof run !== 'function' || !Array.isArray(tasks) || !tasks.length)
     throw new Error('runBench needs dir, revision, run and a non-empty tasks list');
@@ -262,7 +263,14 @@ export async function runBench(options) {
       const next = () => {
         if (state !== 'running') { if (!running) settle(); return; }
         while (running < concurrency) {
-          const index = pending.findIndex(task => { const key = exclusive(task); return key === undefined || !busy.has(key); });
+          const current = roundsInOrder
+            ? Math.min(...tasks.filter(task => !records.has(task.id) && task.round !== undefined).map(task => task.round))
+            : Infinity;
+          const index = pending.findIndex(task => {
+            if (task.round > current) return false;
+            const key = exclusive(task);
+            return key === undefined || !busy.has(key);
+          });
           if (index === -1) break;
           const estimate = budget ? Number(budget.estimate?.(pending[index]) ?? 0) : 0;
           if (budget && spent() + reserved + estimate > budget.capUsd) { state = 'budget-reached'; break; }
