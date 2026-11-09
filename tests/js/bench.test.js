@@ -21,6 +21,7 @@ let started = 0;
 let release;
 const barrier = new Promise(done => { release = done; });
 const groups = new Map();
+const attempts = new Map();
 const yieldTurn = () => new Promise(done => setImmediate(done));
 const tasks = config.rate
   ? Object.keys(config.rate).map(id => ({ id }))
@@ -31,7 +32,7 @@ try {
   const result = await runBench({
     dir: config.dir, revision: 'rev-test', resume: Boolean(config.resume), tasks,
     gate: config.rate ? rateGate({ threshold: 0.51 }) : config.flat ? undefined : streakGate({ required: config.rounds, regression: 1 }),
-    concurrency: config.concurrency ?? 1, timeoutMs: config.timeoutMs,
+    concurrency: config.concurrency ?? 1, timeoutMs: config.timeoutMs, retries: config.retries,
     exclusive: task => task.group,
     freeze: config.freeze, secrets: config.secrets, config: config.config,
     async run(task, { signal, taskDir }) {
@@ -43,6 +44,8 @@ try {
         await new Promise((_, reject) => signal.addEventListener('abort', () => { clearInterval(handle); reject(new Error('aborted')); }, { once: true }));
       }
       if (config.rate) return { ok: true, outcome: config.rate[task.id] };
+      attempts.set(task.id, (attempts.get(task.id) ?? 0) + 1);
+      if (config.infraFailures?.[task.id] >= attempts.get(task.id)) return { ok: false, infra: true, error: 'HTTP 503' };
       running++;
       const group = task.group;
       const overlap = group ? (groups.get(group) ?? 0) > 0 : false;
@@ -278,6 +281,20 @@ describe('bench runner', () => {
     expect(result.summary.failed).toEqual(['t1']);
     expect(json(join(dir, 'tasks', 't1.json'))).toMatchObject({ ok: false, result: { ok: false, error: 'timeout' } });
     expect(ran(lines)).toEqual(['t0', 't1', 't2']);
+  });
+
+  test('an infrastructure failure is retried a bounded number of times before it counts', async () => {
+    const root = workspace();
+    const dir = join(root, 'report');
+
+    const { code, result, lines } = await run(root, { dir, flat: 3, retries: 1, infraFailures: { t0: 1, t1: 2 } });
+
+    expect(code).toBe(1);
+    expect(result.state).toBe('needs-investigation');
+    expect(result.summary.failed).toEqual(['t1']);
+    expect(json(join(dir, 'tasks', 't0.json'))).toMatchObject({ ok: true, attempts: 2 });
+    expect(json(join(dir, 'tasks', 't1.json'))).toMatchObject({ ok: false, attempts: 2, result: { infra: true, error: 'HTTP 503' } });
+    expect(ran(lines)).toEqual(['t0', 't0', 't1', 't1', 't2']);
   });
 
   test('parallel tasks respect the limit and exclusive groups', async () => {

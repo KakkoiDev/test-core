@@ -170,6 +170,7 @@ async function scan(dir, secrets) {
  *   concurrency how many tasks run at once (1)
  *   exclusive   task => key: at most one running task per key (e.g. one local model)
  *   timeoutMs   a task still running after this many milliseconds is aborted and recorded as ok false, error 'timeout'
+ *   retries     how many times a task whose result says `infra: true` runs again before that result counts (0)
  *   secrets     literal values that must not appear in any file under `dir` when the run ends
  *   config      extra settings recorded in the manifest
  *   onEvent     ({ type, ... }) => void, for logs
@@ -177,7 +178,7 @@ async function scan(dir, secrets) {
  */
 export async function runBench(options) {
   const { dir, tasks, run, revision, resume = false, freeze, concurrency = 1, exclusive = () => undefined, secrets,
-    config = {}, timeoutMs, onEvent = () => {} } = options;
+    config = {}, timeoutMs, retries = 0, onEvent = () => {} } = options;
   const gate = options.gate ?? allGate();
   if (!dir || !revision || typeof run !== 'function' || !Array.isArray(tasks) || !tasks.length)
     throw new Error('runBench needs dir, revision, run and a non-empty tasks list');
@@ -272,6 +273,23 @@ export async function runBench(options) {
       next();
     });
 
+    async function attempt(task, taskDir) {
+      const limit = new AbortController();
+      let timer;
+      const expired = new Promise(done => {
+        if (timeoutMs) timer = setTimeout(() => { limit.abort(new Error('timeout')); done(); }, timeoutMs);
+      });
+      try {
+        const signal = AbortSignal.any([controller.signal, limit.signal]);
+        const result = await Promise.race([run(task, { signal, dir, taskDir }), expired]);
+        return limit.signal.aborted ? { ok: false, error: 'timeout' } : result;
+      } catch (error) {
+        return limit.signal.aborted ? { ok: false, error: 'timeout' } : { ok: false, error: String(error?.message ?? error).slice(0, 2000) };
+      } finally {
+        clearTimeout(timer);
+      }
+    }
+
     async function execute(task) {
       const taskDir = join(dir, 'tasks', task.id);
       await mkdir(taskDir, { recursive: true });
@@ -281,25 +299,17 @@ export async function runBench(options) {
       onEvent({ type: 'task-start', id: task.id });
       await save();
       let result;
-      const limit = new AbortController();
-      let timer;
-      const expired = new Promise(done => {
-        if (timeoutMs) timer = setTimeout(() => { limit.abort(new Error('timeout')); done(); }, timeoutMs);
-      });
-      try {
-        const signal = AbortSignal.any([controller.signal, limit.signal]);
-        result = await Promise.race([run(task, { signal, dir, taskDir }), expired]);
-      } catch (error) {
-        if (controller.signal.aborted) { clearTimeout(timer); active.delete(task.id); return; }
-        result = { ok: false, error: String(error?.message ?? error).slice(0, 2000) };
-      }
-      clearTimeout(timer);
-      if (limit.signal.aborted) result = { ok: false, error: 'timeout' };
+      let attempts = 0;
+      do {
+        attempts++;
+        if (attempts > 1) onEvent({ type: 'task-retry', id: task.id, attempt: attempts, error: result?.error });
+        result = await attempt(task, taskDir);
+      } while (result?.infra === true && attempts <= retries && !controller.signal.aborted);
       active.delete(task.id);
       if (controller.signal.aborted) return;
       const seconds = Math.round(Number(process.hrtime.bigint() - clock) / 1e6) / 1e3;
       const record = { id: task.id, task, revision, fingerprint: manifest.fingerprint, startedAt: begun, seconds,
-        ok: result?.ok === true, result: result ?? null };
+        ok: result?.ok === true, ...(attempts > 1 ? { attempts } : {}), result: result ?? null };
       await atomic(join(dir, 'tasks', `${task.id}.json`), record);
       records.set(task.id, record);
       verdict = gate.evaluate(records, tasks);

@@ -34,7 +34,7 @@ process.exitCode = exitCode;
 | --- | --- |
 | `manifest.json` | revision, plan hash, gate, frozen files with sha256, fingerprint, Node version, host `config` |
 | `state.json` | state, PID, `updatedAt` (refreshed at least every 15 s while running), completed / total, active tasks with start times, the gate's summary, any failure |
-| `tasks/<id>.json` | one checkpoint per finished task: the task, revision, fingerprint, start time, `seconds`, `ok` and the full result |
+| `tasks/<id>.json` | one checkpoint per finished task: the task, revision, fingerprint, start time, `seconds`, `ok`, `attempts` when it was retried, and the full result |
 | `tasks/<id>/` | the task's own folder for reports, logs and screenshots |
 | `run.lock` | the running process's PID; removed at the end, reclaimed only when that process no longer exists |
 
@@ -67,6 +67,9 @@ Exit codes: 0 for `stable-and-regression-passed`, `complete` and `above-threshol
 - **A hung task does not hang the run.** With `timeoutMs`, a task still running after that many milliseconds gets its
   signal aborted and is recorded as `ok: false, error: 'timeout'`; the run goes on. A task that ignores the signal keeps
   running in the background, so pass it on.
+- **An infrastructure flake is not a product failure.** A task that fails for a reason outside the product (an API 5xx,
+  a rate limit) returns `infra: true`. With `retries: n`, such a task runs again up to n times before its result counts;
+  the checkpoint records `attempts`. A product failure is never retried.
 
 The host owns everything else: what a case asserts, which models or engines run, and how to start and stop the app.
 Keep case counts honest in the host. Rich AI Chat, for example, compares each suite's case list with its expected count

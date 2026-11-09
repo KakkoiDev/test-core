@@ -59,6 +59,11 @@ Given a plan of three tasks with a time limit, where the second task never finis
 When the runner finishes
 Then the second task's checkpoint says ok false with error timeout, the other tasks ran, and the state is needs-investigation
 
+### Scenario: an infrastructure failure is retried a bounded number of times before it counts
+Given a plan with one retry allowed, a task whose first attempt reports an infrastructure failure and a task whose every attempt does
+When the runner finishes
+Then the first task passes on its second attempt, the second is recorded as failed after two attempts, and the state is needs-investigation
+
 ### Scenario: parallel tasks respect the limit and exclusive groups
 Given a plan of six tasks, a concurrency of three and two tasks sharing one exclusive group
 When the runner finishes
