@@ -57,10 +57,11 @@ export function sameProcess(pid, started) {
 /** Take the folder's lock, reclaiming it only when the recorded process no longer exists and the lock still holds what was read. */
 async function lock(dir) {
   const path = join(dir, 'run.lock');
+  const mine = JSON.stringify({ pid: process.pid, started: processStart(process.pid) });
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
       const handle = await open(path, 'wx');
-      await handle.writeFile(JSON.stringify({ pid: process.pid, started: processStart(process.pid) }));
+      await handle.writeFile(mine);
       await handle.close();
       return async () => { await unlink(path).catch(() => {}); };
     } catch (error) {

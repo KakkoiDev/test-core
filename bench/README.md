@@ -36,7 +36,7 @@ process.exitCode = exitCode;
 | `state.json` | state, PID and its start time (`pidStarted`), `updatedAt` (refreshed at least every 15 s while running), completed / total, active tasks with start times, the gate's summary, any failure |
 | `tasks/<id>.json` | one checkpoint per finished task: the task, revision, fingerprint, start time, `seconds`, `ok`, `attempts` when it was retried, and the full result |
 | `tasks/<id>/` | the task's own folder for reports, logs and screenshots |
-| `run.lock` | the running process's PID and start time (read with `ps` in the C locale and UTC, so every caller sees the same text); removed at the end, reclaimed only when that process no longer exists or the PID now names a process with another start time (PID reuse, for example after a reboot), and only when the lock still holds what was read. Without an OS lock (`flock`, which Node.js has no built-in for, so it would need a dependency) a narrow window remains between that re-read and the removal |
+| `run.lock` | the running process's PID and start time (read with `ps` in the C locale and UTC, so every caller sees the same text); removed at the end, reclaimed only when that process no longer exists or the PID now names a process with another start time (PID reuse, for example after a reboot), and only when the lock still holds what was read. Without an OS lock (`flock`, which Node.js has no built-in for, so it would need a dependency) two narrow windows remain: between that re-read and the removal, and between creating the lock and its single write of the PID and start time (read before the lock is created) |
 
 Failed tasks are kept exactly like passing ones. Nothing is ever deleted.
 

@@ -34,6 +34,11 @@ Given a report folder whose lock names a process that is gone, and another runne
 When a runner starts in that folder
 Then the runner refuses with the other runner's PID, runs no task and leaves the other runner's lock in place
 
+### Scenario: a runner that is still taking the lock keeps it from a runner starting at the same moment
+Given a runner that is held while it reads its own start time, before it creates the lock
+When a second runner starts in that folder and takes the lock, and the first runner then goes on
+Then the first runner refuses with the second runner's PID and runs no task
+
 ### Scenario: a run started under another locale and time zone is still seen as running
 Given a run in progress that was started under one time zone and the C locale
 When a second runner starts in that folder and the state is read, both under another time zone and the Japanese locale

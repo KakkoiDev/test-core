@@ -2,7 +2,7 @@
 // consumer program in a temporary folder, so locks, signals and resume cross a real process boundary.
 import { execFile, spawn } from 'node:child_process';
 import { once } from 'node:events';
-import { chmodSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, writeFileSync, existsSync } from 'node:fs';
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, watch, writeFileSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { createInterface } from 'node:readline';
@@ -222,6 +222,35 @@ describe('bench runner', () => {
     expect(second.lines.join('\n')).toContain(`Run already active (PID ${process.pid})`);
     expect(ran(second.lines)).toEqual([]);
     expect(readFileSync(lockPath, 'utf8')).toBe(other);
+  });
+
+  test('a runner that is still taking the lock keeps it from a runner starting at the same moment', async () => {
+    const root = workspace();
+    const dir = join(root, 'report');
+    const bin = join(root, 'bin');
+    mkdirSync(bin);
+    const held = join(root, 'held');
+    const release = join(root, 'release');
+    // A slow ps for the first runner: its first call waits until the test releases it.
+    writeFileSync(join(bin, 'ps'), '#!/bin/sh\nif [ ! -f "$HELD" ]; then : > "$HELD"; while [ ! -f "$RELEASE" ]; do sleep 0.05; done; fi\nexec /bin/ps "$@"\n');
+    chmodSync(join(bin, 'ps'), 0o755);
+    const slow = { ...process.env, PATH: `${bin}:${process.env.PATH}`, HELD: held, RELEASE: release };
+    const appeared = new Promise(done => {
+      const watcher = watch(root, () => { if (existsSync(held)) { watcher.close(); done(); } });
+    });
+
+    const first = start(root, { dir, rounds: 1, subjects: ['alpha'] }, slow);
+    await appeared;
+    const second = start(root, { dir, rounds: 1, subjects: ['alpha'], block: ['r1-alpha'] });
+    await second.waitFor('started r1-alpha');
+    writeFileSync(release, '');
+    const refused = await first.finished;
+    second.child.kill('SIGINT');
+    await second.finished;
+
+    expect(refused.code).toBe(3);
+    expect(refused.lines.join('\n')).toContain(`Run already active (PID ${second.child.pid})`);
+    expect(ran(refused.lines)).toEqual([]);
   });
 
   test('a run started under another locale and time zone is still seen as running', async () => {
