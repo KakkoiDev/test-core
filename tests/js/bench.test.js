@@ -186,6 +186,23 @@ describe('bench runner', () => {
     expect(ran(resumed.lines)).toEqual([]);
   });
 
+  test('a resume refuses when the list of frozen files changed', async () => {
+    const root = workspace();
+    const dir = join(root, 'report');
+    writeFileSync(join(root, 'engine.js'), 'export const depth = 4;\n');
+    writeFileSync(join(root, 'book.js'), 'export const openings = [];\n');
+    const first = start(root, { dir, rounds: 1, subjects: ['alpha'], block: ['r1-alpha'], freeze: { root, files: ['engine.js'] } });
+    await first.waitFor('started r1-alpha');
+    first.child.kill('SIGINT');
+    await first.finished;
+
+    const resumed = await run(root, { dir, rounds: 1, subjects: ['alpha'], resume: true, freeze: { root, files: ['engine.js', 'book.js'] } });
+
+    expect(resumed.code).toBe(3);
+    expect(resumed.lines.join('\n')).toContain('Frozen file added: book.js');
+    expect(ran(resumed.lines)).toEqual([]);
+  });
+
   test('a finished report folder is never reused', async () => {
     const root = workspace();
     const dir = join(root, 'report');

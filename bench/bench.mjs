@@ -209,6 +209,8 @@ export async function runBench(options) {
       const now = new Map(files.map(file => [file.path, file.sha256]));
       for (const file of manifest.files)
         if (now.get(file.path) !== file.sha256) throw new Error(`Frozen file changed: ${file.path}`);
+      const kept = new Set(manifest.files.map(file => file.path));
+      for (const file of files) if (!kept.has(file.path)) throw new Error(`Frozen file added: ${file.path}`);
       for (const name of (await readdir(join(dir, 'tasks'))).filter(name => name.endsWith('.json'))) {
         const record = JSON.parse(await readFile(join(dir, 'tasks', name), 'utf8'));
         if (!ids.has(record.id) || record.revision !== revision || record.fingerprint !== manifest.fingerprint)

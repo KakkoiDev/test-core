@@ -29,6 +29,11 @@ Given an interrupted run whose manifest froze a source file
 When that file is edited and the run is resumed
 Then the runner refuses, naming the changed file, and runs no task
 
+### Scenario: a resume refuses when the list of frozen files changed
+Given an interrupted run whose manifest froze one source file
+When the run is resumed with a second file added to the frozen list
+Then the runner refuses, naming the added file, and runs no task
+
 ### Scenario: a finished report folder is never reused
 Given a folder holding a finished run
 When a new run or a resume targets that folder
