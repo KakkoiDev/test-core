@@ -36,7 +36,7 @@ process.exitCode = exitCode;
 | `state.json` | state, PID and its start time (`pidStarted`), `updatedAt` (refreshed at least every 15 s while running), completed / total, active tasks with start times, the gate's summary, any failure |
 | `tasks/<id>.json` | one checkpoint per finished task: the task, revision, fingerprint, start time, `seconds`, `ok`, `attempts` when it was retried, and the full result |
 | `tasks/<id>/` | the task's own folder for reports, logs and screenshots |
-| `run.lock` | the running process's PID and start time; removed at the end, reclaimed only when that process no longer exists or the PID now names a process with another start time (PID reuse, for example after a reboot) |
+| `run.lock` | the running process's PID and start time (read with `ps` in the C locale and UTC, so every caller sees the same text); removed at the end, reclaimed only when that process no longer exists or the PID now names a process with another start time (PID reuse, for example after a reboot), and only when the lock still holds what was read. Without an OS lock (`flock`, which Node.js has no built-in for, so it would need a dependency) a narrow window remains between that re-read and the removal |
 
 Failed tasks are kept exactly like passing ones. Nothing is ever deleted.
 
@@ -77,7 +77,9 @@ Exit codes: 0 for `stable-and-regression-passed`, `complete` and `above-threshol
 - **Spending is capped.** With `budget: { capUsd, estimate }`, each task's result reports `costUsd` (summed over its
   attempts into the checkpoint). A task starts only when the spend so far, the estimates of the tasks in flight and
   `estimate(task)` stay within `capUsd`; otherwise the run ends as `budget-reached`. `state.json` holds `spentUsd` and
-  `capUsd`. The spend counts every checkpoint, so it carries over a resume.
+  `capUsd`. The spend counts every checkpoint, so it carries over a resume. An infrastructure retry runs only when the
+  spend so far, the estimates in flight and the task's cost so far stay within `capUsd`; otherwise its last result
+  counts and the run ends as `budget-reached`.
 
 The host owns everything else: what a case asserts, which models or engines run, and how to start and stop the app.
 Keep case counts honest in the host. Rich AI Chat, for example, compares each suite's case list with its expected count

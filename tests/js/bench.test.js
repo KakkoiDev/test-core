@@ -1,16 +1,18 @@
 // End-to-end tests for bench/SCENARIOS.md: one test per scenario, named after its title. Each test runs a fresh
 // consumer program in a temporary folder, so locks, signals and resume cross a real process boundary.
-import { spawn } from 'node:child_process';
+import { execFile, spawn } from 'node:child_process';
 import { once } from 'node:events';
-import { mkdirSync, mkdtempSync, readFileSync, readdirSync, writeFileSync, existsSync } from 'node:fs';
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, writeFileSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { createInterface } from 'node:readline';
+import { promisify } from 'node:util';
 import { describe, expect, test } from 'vitest';
 import { processStart } from '../../bench/bench.mjs';
 import { readState } from '../../bench/report.mjs';
 
 const BENCH = resolve('bench/bench.mjs');
+const REPORT = resolve('bench/report.mjs');
 
 // The consumer: a plan built from a JSON config, and a task body whose behaviour the config chooses.
 const CONSUMER = `
@@ -48,7 +50,7 @@ try {
       }
       if (config.rate) return { ok: true, outcome: config.rate[task.id] };
       attempts.set(task.id, (attempts.get(task.id) ?? 0) + 1);
-      if (config.infraFailures?.[task.id] >= attempts.get(task.id)) return { ok: false, infra: true, error: 'HTTP 503' };
+      if (config.infraFailures?.[task.id] >= attempts.get(task.id)) return { ok: false, infra: true, error: 'HTTP 503', ...(config.capUsd ? { costUsd: 1 } : {}) };
       running++;
       const group = task.group;
       const overlap = group ? (groups.get(group) ?? 0) > 0 : false;
@@ -87,8 +89,8 @@ function workspace() {
 }
 
 /** Start the consumer; `lines` collects its output, `waitFor(text)` resolves when a line contains the text. */
-function start(root, config) {
-  const child = spawn(process.execPath, [join(root, 'consumer.mjs'), JSON.stringify(config)], { cwd: root });
+function start(root, config, env = process.env) {
+  const child = spawn(process.execPath, [join(root, 'consumer.mjs'), JSON.stringify(config)], { cwd: root, env });
   const lines = [];
   const waiting = [];
   createInterface({ input: child.stdout }).on('line', line => {
@@ -103,7 +105,7 @@ function start(root, config) {
   return { child, lines, finished, waitFor };
 }
 
-const run = (root, config) => start(root, config).finished;
+const run = (root, config, env) => start(root, config, env).finished;
 const json = path => JSON.parse(readFileSync(path, 'utf8'));
 const ran = lines => lines.filter(l => l.startsWith('ran ')).map(l => l.slice(4));
 
@@ -198,6 +200,49 @@ describe('bench runner', () => {
     expect(liveState.state).toBe('running');
     expect(refused.lines.join('\n')).toContain(`Run already active (PID ${process.pid})`);
     expect(reclaimed.result.state).toBe('stable-and-regression-passed');
+  });
+
+  test('a stale lock replaced by another runner before it is removed is kept', async () => {
+    const root = workspace();
+    const dir = join(root, 'report');
+    const bin = join(root, 'bin');
+    mkdirSync(dir);
+    mkdirSync(bin);
+    const lockPath = join(dir, 'run.lock');
+    const other = JSON.stringify({ pid: process.pid, started: 'A-start' });
+    writeFileSync(lockPath, JSON.stringify({ pid: process.pid, started: 'old-start' }));
+    // A stand-in for ps: the first time the stale lock is checked, another runner replaces it with its own lock.
+    writeFileSync(join(bin, 'ps'), '#!/bin/sh\nif grep -q old-start "$LOCK"; then printf \'%s\' "$OTHER_LOCK" > "$LOCK"; fi\necho A-start\n');
+    chmodSync(join(bin, 'ps'), 0o755);
+    const env = { ...process.env, PATH: `${bin}:${process.env.PATH}`, LOCK: lockPath, OTHER_LOCK: other };
+
+    const second = await run(root, { dir, rounds: 1, subjects: ['alpha'] }, env);
+
+    expect(second.code).toBe(3);
+    expect(second.lines.join('\n')).toContain(`Run already active (PID ${process.pid})`);
+    expect(ran(second.lines)).toEqual([]);
+    expect(readFileSync(lockPath, 'utf8')).toBe(other);
+  });
+
+  test('a run started under another locale and time zone is still seen as running', async () => {
+    const root = workspace();
+    const dir = join(root, 'report');
+    const honolulu = { ...process.env, TZ: 'Pacific/Honolulu', LC_ALL: 'C' };
+    const tokyo = { ...process.env, TZ: 'Asia/Tokyo', LANG: 'ja_JP.UTF-8', LC_ALL: 'ja_JP.UTF-8' };
+    const first = start(root, { dir, rounds: 1, subjects: ['alpha'], block: ['r1-alpha'] }, honolulu);
+    await first.waitFor('started r1-alpha');
+
+    const second = await run(root, { dir, rounds: 1, subjects: ['alpha'], resume: true }, tokyo);
+    const { stdout } = await promisify(execFile)(process.execPath, ['--input-type=module', '-e',
+      `import { readState } from ${JSON.stringify(REPORT)}; console.log(JSON.stringify(await readState(${JSON.stringify(dir)})));`],
+      { env: tokyo });
+    first.child.kill('SIGINT');
+    await first.finished;
+
+    expect(second.code).toBe(3);
+    expect(second.lines.join('\n')).toContain(`Run already active (PID ${first.child.pid})`);
+    expect(ran(second.lines)).toEqual([]);
+    expect(JSON.parse(stdout).state).toBe('running');
   });
 
   test('an interrupted run resumes from its checkpoints without repeating finished tasks', async () => {
@@ -378,6 +423,19 @@ describe('bench runner', () => {
     expect(raised.result.state).toBe('complete');
     expect(ran(raised.lines)).toEqual(['t2', 't3']);
     expect(json(join(dir, 'state.json'))).toMatchObject({ spentUsd: 4, capUsd: 10 });
+  });
+
+  test('an infrastructure retry never passes the spending cap', async () => {
+    const root = workspace();
+    const dir = join(root, 'report');
+
+    const { code, result, lines } = await run(root, { dir, flat: 3, retries: 2, capUsd: 2.5, infraFailures: { t0: 3 } });
+
+    expect(code).toBe(1);
+    expect(result.state).toBe('budget-reached');
+    expect(ran(lines)).toEqual(['t0', 't0']);
+    expect(json(join(dir, 'tasks', 't0.json'))).toMatchObject({ ok: false, attempts: 2, costUsd: 2, result: { infra: true } });
+    expect(json(join(dir, 'state.json'))).toMatchObject({ state: 'budget-reached', spentUsd: 2, capUsd: 2.5 });
   });
 
   test('a run that reached its spending cap can still be interrupted while a task is in flight', async () => {

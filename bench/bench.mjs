@@ -32,10 +32,11 @@ async function frozenFiles(freeze) {
   return files;
 }
 
-/** The process's start time as `ps` prints it, or undefined when the process is gone or `ps` is missing. */
+/** The process's start time as `ps` prints it in the C locale and UTC, or undefined when the process is gone or `ps` is missing. */
 export function processStart(pid) {
   try {
-    return execFileSync('ps', ['-o', 'lstart=', '-p', String(pid)], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim() || undefined;
+    return execFileSync('ps', ['-o', 'lstart=', '-p', String(pid)],
+      { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], env: { ...process.env, LC_ALL: 'C', TZ: 'UTC' } }).trim() || undefined;
   } catch {
     return undefined;
   }
@@ -53,7 +54,7 @@ export function sameProcess(pid, started) {
   return now === undefined || now === started;
 }
 
-/** Take the folder's lock, reclaiming it only when the recorded process no longer exists. */
+/** Take the folder's lock, reclaiming it only when the recorded process no longer exists and the lock still holds what was read. */
 async function lock(dir) {
   const path = join(dir, 'run.lock');
   for (let attempt = 0; attempt < 2; attempt++) {
@@ -68,7 +69,7 @@ async function lock(dir) {
       const held = (() => { try { return JSON.parse(text); } catch { return {}; } })();
       const pid = Number(held?.pid ?? held);
       if (pid > 0 && pid !== process.pid && sameProcess(pid, held?.started)) throw new Error(`Run already active (PID ${pid})`);
-      await unlink(path).catch(() => {});
+      if (await readFile(path, 'utf8').catch(() => '') === text) await unlink(path).catch(() => {});
     }
   }
   throw new Error('Could not take the run lock');
@@ -375,12 +376,18 @@ export async function runBench(options) {
       let result;
       let attempts = 0;
       let costUsd = 0;
+      const retryFits = () => {
+        if (!budget) return true;
+        if (state === 'running' && spent() + reserved + costUsd <= budget.capUsd) return true;
+        if (state === 'running') state = 'budget-reached';
+        return false;
+      };
       do {
         attempts++;
         if (attempts > 1) onEvent({ type: 'task-retry', id: task.id, attempt: attempts, error: result?.error });
         result = await attempt(task, taskDir);
         costUsd += Number(result?.costUsd) || 0;
-      } while (result?.infra === true && attempts <= retries && !controller.signal.aborted);
+      } while (result?.infra === true && attempts <= retries && !controller.signal.aborted && retryFits());
       active.delete(task.id);
       if (controller.signal.aborted) return;
       const seconds = Math.round(Number(process.hrtime.bigint() - clock) / 1e6) / 1e3;

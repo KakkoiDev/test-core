@@ -29,6 +29,16 @@ Given a run lock and a running state that name a live PID with a start time that
 When a runner starts in that folder and the state is read
 Then the runner reclaims the lock and finishes, the state reads as stale, and the same files with the true start time still count as active
 
+### Scenario: a stale lock replaced by another runner before it is removed is kept
+Given a report folder whose lock names a process that is gone, and another runner that replaces that lock with its own while the stale lock is checked
+When a runner starts in that folder
+Then the runner refuses with the other runner's PID, runs no task and leaves the other runner's lock in place
+
+### Scenario: a run started under another locale and time zone is still seen as running
+Given a run in progress that was started under one time zone and the C locale
+When a second runner starts in that folder and the state is read, both under another time zone and the Japanese locale
+Then the second runner refuses with the running PID and runs no task, and the state reads as running
+
 ### Scenario: an interrupted run resumes from its checkpoints without repeating finished tasks
 Given a run interrupted by SIGINT while a task is in progress
 When the run is resumed in the same folder
@@ -83,6 +93,11 @@ Then the first task passes on its second attempt, the second is recorded as fail
 Given a plan of four tasks that each cost one dollar, estimated at one dollar, and a cap of 2.5 dollars
 When the runner finishes, and the run is resumed with a cap of 10 dollars
 Then two tasks ran, the state is budget-reached with the spend recorded, and the resume runs only the other two and completes
+
+### Scenario: an infrastructure retry never passes the spending cap
+Given a plan of three tasks that each cost one dollar per attempt, estimated at one dollar, a cap of 2.5 dollars and two retries allowed, and a first task whose every attempt reports an infrastructure failure
+When the runner finishes
+Then the first task ran twice and is recorded as failed with its two dollars, no other task ran, and the state is budget-reached
 
 ### Scenario: a run that reached its spending cap can still be interrupted while a task is in flight
 Given a run that reached its spending cap while one task is still in flight
