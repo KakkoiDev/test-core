@@ -232,7 +232,7 @@ async function scan(dir, secrets) {
  *               estimates of the tasks in flight and its own estimate would pass capUsd; the run ends as budget-reached
  *   secrets     literal values that must not appear in any file under `dir` when the run ends, as they are or JSON-escaped,
  *               URL-encoded or base64; values under 8 characters are not scanned and are listed in `unscannedSecrets`
- *   config      extra settings recorded in the manifest
+ *   config      extra settings recorded in the manifest; a resume refuses if they changed
  *   onEvent     ({ type, ... }) => void, for logs
  * Returns { state, exitCode, summary }. Throws (and changes nothing) when it refuses to start.
  */
