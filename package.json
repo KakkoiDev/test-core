@@ -9,8 +9,8 @@
     "node": ">=22.13"
   },
   "scripts": {
-    "test": "vitest run && node --test recipes/js/unit-nodeps/slug.nodetest.js && playwright test",
-    "test:unit": "vitest run && node --test recipes/js/unit-nodeps/slug.nodetest.js",
+    "test": "vitest run && node --test recipes/js/unit-nodeps/slug.nodetest.js tests/js/*.nodetest.js && playwright test",
+    "test:unit": "vitest run && node --test recipes/js/unit-nodeps/slug.nodetest.js tests/js/*.nodetest.js",
     "test:e2e": "playwright test"
   },
   "devDependencies": {
