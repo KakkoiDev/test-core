@@ -146,3 +146,5 @@ These rules came out of releasing Rich AI Chat against five models, three local 
 Scenarios: [SCENARIOS.md](SCENARIOS.md). Tests: `npx vitest run tests/js/bench.test.js tests/js/bench-toolkit.test.js`,
 and `python3 tools/scenarios.py check bench/SCENARIOS.md --tests tests/js/bench.test.js tests/js/bench-toolkit.test.js
 --junit <vitest junit report>`.
+
+For multi-turn chat cases, use the [conversation protocol](conversation.md) to keep real follow-up context and report each turn. The [HTTP response proxy](response-proxy.md) replays paid provider responses without contacting the provider.
